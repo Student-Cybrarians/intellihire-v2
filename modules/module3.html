@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Module 03 — Technical Round</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.min.js"></script>
+<script src="../config.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#06060f;--bg2:#0d0d1a;--surface:#1a1a2e;--border:#ffffff12;--border2:#ffffff1e;--cyan:#00d4ff;--green:#22c55e;--text:#f0f0ff;--text2:#a0a0c0;--fd:'Syne',sans-serif;--fm:'JetBrains Mono',monospace;--fb:'DM Sans',sans-serif;--r:12px}
+body{background:var(--bg);color:var(--text);font-family:var(--fb);min-height:100vh}
+nav{position:sticky;top:0;z-index:100;background:rgba(6,6,15,.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-logo{font-family:var(--fd);font-size:1.1rem;font-weight:800}
+.nav-logo span{color:var(--cyan)}
+.nav-links a{font-size:.82rem;color:var(--text2);text-decoration:none;margin-left:1.5rem}
+.container{max-width:1200px;margin:0 auto;padding:2rem}
+.header{text-align:center;margin-bottom:2rem}
+.header h1{font-family:var(--fd);font-size:2rem;font-weight:800;margin-bottom:.5rem}
+.header h1 span{color:var(--cyan)}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem}
+.panel-title{font-family:var(--fd);font-size:1.1rem;font-weight:700;margin-bottom:1rem}
+#editor{height:400px;border:1px solid var(--border2);border-radius:var(--r);overflow:hidden}
+.btn{padding:12px 24px;background:var(--cyan);color:#000;border:none;border-radius:var(--r);font-family:var(--fm);font-size:.85rem;font-weight:500;cursor:pointer;margin-top:1rem}
+.btn:hover{transform:translateY(-2px)}
+#feedback{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem;margin-top:1rem;font-size:.85rem;line-height:1.7;display:none}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Intelli<span>Hire</span></div>
+  <div class="nav-links">
+    <a href="../index.html">Home</a>
+    <a href="../about.html">About</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="header">
+    <h1>Module 03 — <span>Technical Round</span></h1>
+    <p>Live code editor with AI code review</p>
+  </div>
+
+  <div class="split">
+    <div class="panel">
+      <div class="panel-title">Problem Statement</div>
+      <div id="problem">Click "Generate Problem" to start</div>
+      <button class="btn" onclick="generateProblem()">Generate Problem</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Code Editor</div>
+      <div id="editor"></div>
+      <button class="btn" onclick="submitCode()">Submit for Review</button>
+      <div id="feedback"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let editor;
+
+require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }});
+require(['vs/editor/editor.main'], function () {
+  editor = monaco.editor.create(document.getElementById('editor'), {
+    value: '// Write your code here\n',
+    language: 'javascript',
+    theme: 'vs-dark',
+    minimap: { enabled: false }
+  });
+});
+
+async function generateProblem() {
+  const result = await callClaude([{
+    role: 'user',
+    content: 'Generate a medium-difficulty coding problem. Return JSON: {"title":"","description":"","examples":"","constraints":""}'
+  }], 'Return only JSON.');
+  
+  const problem = JSON.parse(result.content[0].text.replace(/```json|```/g, '').trim());
+  
+  document.getElementById('problem').innerHTML = `
+    <h3 style="font-family:var(--fd);margin-bottom:.75rem">${problem.title}</h3>
+    <p style="margin-bottom:1rem;line-height:1.7">${problem.description}</p>
+    <p style="font-size:.85rem;color:var(--text2)"><strong>Examples:</strong> ${problem.examples}</p>
+    <p style="font-size:.85rem;color:var(--text2);margin-top:.5rem"><strong>Constraints:</strong> ${problem.constraints}</p>
+  `;
+}
+
+async function submitCode() {
+  const code = editor.getValue();
+  
+  const feedbackEl = document.getElementById('feedback');
+  feedbackEl.style.display = 'block';
+  feedbackEl.textContent = 'Analyzing code...';
+  
+  const result = await callClaude([{
+    role: 'user',
+    content: `Review this code:\n\n${code}\n\nProvide: 1) Correctness 2) Time/space complexity 3) Suggestions`
+  }], 'You are a technical interviewer.');
+  
+  feedbackEl.innerHTML = result.content[0].text.replace(/\n/g, '<br>');
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>IntelliHire — AI-Powered Hiring Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#06060f;--bg2:#0d0d1a;--bg3:#13131f;--surface:#1a1a2e;--surface2:#20203a;
+  --border:#ffffff12;--border2:#ffffff1e;
+  --cyan:#00d4ff;--green:#22c55e;--amber:#f59e0b;--purple:#a78bfa;
+  --red:#ef4444;--pink:#ec4899;--blue:#3b82f6;--ant:#cc785c;
+  --text:#f0f0ff;--text2:#a0a0c0;--text3:#60607a;
+  --fd:'Syne',sans-serif;--fm:'JetBrains Mono',monospace;--fb:'DM Sans',sans-serif;
+  --r:12px;--r2:8px;
+}
+html{overflow-x:hidden;scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--fb);min-height:100vh}
+
+nav{position:sticky;top:0;z-index:100;background:rgba(6,6,15,.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-logo{font-family:var(--fd);font-size:1.1rem;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.nav-logo span{color:var(--cyan)}
+.nav-links{display:flex;gap:1.5rem;align-items:center}
+.nav-links a{font-size:.82rem;color:var(--text2);text-decoration:none;transition:color .2s;font-weight:500}
+.nav-links a:hover,.nav-links a.active{color:var(--cyan)}
+
+.hero{padding:6rem 2rem 4rem;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 900px 500px at 50% 0%,rgba(0,212,255,.08) 0%,transparent 70%);pointer-events:none}
+.hero h1{font-family:var(--fd);font-size:clamp(2.5rem,8vw,4.5rem);font-weight:800;letter-spacing:-.04em;line-height:1.05;margin-bottom:1.5rem}
+.hero h1 .accent{color:var(--cyan)}
+.hero-sub{font-size:1.1rem;color:var(--text2);max-width:720px;margin:0 auto 3rem;line-height:1.7}
+.cta-btn{display:inline-flex;align-items:center;gap:10px;font-family:var(--fm);font-size:.85rem;padding:14px 28px;border-radius:var(--r);background:var(--cyan);color:#000;text-decoration:none;font-weight:500;transition:all .2s}
+.cta-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,212,255,.3)}
+
+.modules{padding:4rem 2rem;max-width:1200px;margin:0 auto}
+.modules-title{font-family:var(--fd);font-size:2rem;font-weight:800;text-align:center;margin-bottom:3rem}
+.mod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.25rem}
+.mod-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;text-decoration:none;display:block;transition:all .25s}
+.mod-card:hover{border-color:var(--cyan);transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.mc-num{font-family:var(--fm);font-size:.7rem;color:var(--cyan);margin-bottom:.5rem}
+.mc-title{font-family:var(--fd);font-size:1.1rem;font-weight:700;margin-bottom:.75rem;color:var(--text)}
+.mc-desc{font-size:.85rem;color:var(--text2);line-height:1.6;margin-bottom:1rem}
+.mc-status{display:inline-flex;align-items:center;gap:4px;font-family:var(--fm);font-size:.65rem;padding:4px 10px;border-radius:4px}
+.mc-live{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.mc-soon{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.2)}
+
+footer{background:var(--bg2);border-top:1px solid var(--border);padding:2rem;text-align:center;font-size:.8rem;color:var(--text3)}
+footer a{color:var(--cyan);text-decoration:none}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Intelli<span>Hire</span></div>
+  <div class="nav-links">
+    <a href="index.html" class="active">Home</a>
+    <a href="about.html">About</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>AI-Powered <span class="accent">Hiring Platform</span></h1>
+  <p class="hero-sub">Complete interview preparation system powered by Anthropic Claude API. Five comprehensive modules covering ATS resume analysis, aptitude testing, technical assessment, HR simulation, and behavioral analysis.</p>
+  <a href="modules/module1.html" class="cta-btn">🚀 Start Module 1</a>
+</div>
+
+<div class="modules">
+  <h2 class="modules-title">Five Modules</h2>
+  <div class="mod-grid">
+    
+    <a href="modules/module1.html" class="mod-card">
+      <div class="mc-num">MODULE 01</div>
+      <div class="mc-title">ATS Resume Analyzer</div>
+      <div class="mc-desc">Upload resume, get ATS score, keyword analysis, bullet improvements, and download optimized PDF resume.</div>
+      <span class="mc-status mc-live">✓ Live</span>
+    </a>
+
+    <a href="modules/module2.html" class="mod-card">
+      <div class="mc-num">MODULE 02</div>
+      <div class="mc-title">Aptitude Round</div>
+      <div class="mc-desc">Adaptive MCQ test with difficulty adjustment, voice mode, real-time scoring, and topic-wise performance report.</div>
+      <span class="mc-status mc-live">✓ Live</span>
+    </a>
+
+    <a href="modules/module3.html" class="mod-card">
+      <div class="mc-num">MODULE 03</div>
+      <div class="mc-title">Technical Round</div>
+      <div class="mc-desc">Live code editor, Claude code review, follow-up questions, language-agnostic problem generation.</div>
+      <span class="mc-status mc-live">✓ Live</span>
+    </a>
+
+    <a href="modules/module4.html" class="mod-card">
+      <div class="mc-num">MODULE 04</div>
+      <div class="mc-title">HR Simulator</div>
+      <div class="mc-desc">Voice-enabled HR interview with Claude persona, STAR method analysis, filler word detection, fluency scoring.</div>
+      <span class="mc-status mc-live">✓ Live</span>
+    </a>
+
+    <a href="modules/module5.html" class="mod-card">
+      <div class="mc-num">MODULE 05</div>
+      <div class="mc-title">Behavioral Analysis</div>
+      <div class="mc-desc">Webcam recording, real-time transcript, Claude behavioral scoring, 4-axis radar chart with final report.</div>
+      <span class="mc-status mc-live">✓ Live</span>
+    </a>
+
+  </div>
+</div>
+
+<footer>
+  IntelliHire © 2025 · <a href="https://github.com/Student-Cybrarians/intellihire-v2">Student-Cybrarians</a> · Built with Anthropic Claude API + GitHub Pages
+</footer>
+
+</body>
+</html>

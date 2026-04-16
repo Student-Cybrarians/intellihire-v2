@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Module 01 — ATS Resume Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="../config.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#06060f;--bg2:#0d0d1a;--surface:#1a1a2e;--border:#ffffff12;--border2:#ffffff1e;--cyan:#00d4ff;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;--text:#f0f0ff;--text2:#a0a0c0;--text3:#60607a;--fd:'Syne',sans-serif;--fm:'JetBrains Mono',monospace;--fb:'DM Sans',sans-serif;--r:12px}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--fb);min-height:100vh}
+nav{position:sticky;top:0;z-index:100;background:rgba(6,6,15,.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-logo{font-family:var(--fd);font-size:1.1rem;font-weight:800;letter-spacing:-.02em}
+.nav-logo span{color:var(--cyan)}
+.nav-links{display:flex;gap:1.5rem;align-items:center}
+.nav-links a{font-size:.82rem;color:var(--text2);text-decoration:none;transition:color .2s;font-weight:500}
+.nav-links a:hover{color:var(--cyan)}
+.container{max-width:900px;margin:0 auto;padding:3rem 2rem}
+.header{text-align:center;margin-bottom:3rem}
+.header h1{font-family:var(--fd);font-size:2.2rem;font-weight:800;margin-bottom:.75rem}
+.header h1 span{color:var(--cyan)}
+.header p{color:var(--text2);font-size:.95rem}
+.upload-area{background:var(--bg2);border:2px dashed var(--border2);border-radius:var(--r);padding:3rem 2rem;text-align:center;margin-bottom:2rem;cursor:pointer;transition:all .2s}
+.upload-area:hover{border-color:var(--cyan)}
+.upload-area.dragover{border-color:var(--cyan);background:rgba(0,212,255,.05)}
+.upload-icon{font-size:3rem;margin-bottom:1rem;opacity:.5}
+.upload-text{font-size:.9rem;color:var(--text2);margin-bottom:.5rem}
+.upload-hint{font-size:.75rem;color:var(--text3);font-family:var(--fm)}
+.upload-btn{display:inline-block;margin-top:1rem;padding:10px 24px;background:var(--cyan);color:#000;border-radius:var(--r);font-family:var(--fm);font-size:.8rem;font-weight:500;cursor:pointer;transition:all .2s}
+.upload-btn:hover{transform:translateY(-2px)}
+#fileInput{display:none}
+.result-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;margin-bottom:1.5rem;display:none}
+.result-card.show{display:block;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.score-circle{width:120px;height:120px;border-radius:50%;margin:0 auto 1.5rem;display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:2.5rem;font-weight:800;position:relative}
+.score-circle::before{content:'';position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--cyan) calc(var(--score) * 1%),var(--surface) 0)}
+.score-inner{width:100px;height:100px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;z-index:1}
+.section-title{font-family:var(--fd);font-size:1.1rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:8px}
+.keyword-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.5rem;margin-bottom:1.5rem}
+.keyword{background:var(--surface);border:1px solid var(--border2);padding:8px 12px;border-radius:6px;font-size:.8rem;text-align:center}
+.bullet-list{list-style:none}
+.bullet-list li{background:var(--surface);border:1px solid var(--border);padding:1rem;border-radius:8px;margin-bottom:.75rem}
+.bullet-before{color:var(--text3);font-size:.8rem;margin-bottom:.5rem}
+.bullet-after{color:var(--green);font-size:.85rem}
+.action-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:var(--cyan);color:#000;border:none;border-radius:var(--r);font-family:var(--fm);font-size:.8rem;font-weight:500;cursor:pointer;transition:all .2s}
+.action-btn:hover{transform:translateY(-2px)}
+.action-btn:disabled{opacity:.5;cursor:not-allowed}
+.spinner{border:3px solid var(--surface);border-top:3px solid var(--cyan);border-radius:50%;width:20px;height:20px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Intelli<span>Hire</span></div>
+  <div class="nav-links">
+    <a href="../index.html">Home</a>
+    <a href="../about.html">About</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="header">
+    <h1>Module 01 — <span>ATS Resume Analyzer</span></h1>
+    <p>Upload your resume for AI-powered ATS scoring and optimization</p>
+  </div>
+
+  <div class="upload-area" id="uploadArea">
+    <div class="upload-icon">📄</div>
+    <div class="upload-text">Drag & drop your resume here</div>
+    <div class="upload-hint">Supports PDF, DOCX, TXT (Max 5MB)</div>
+    <label class="upload-btn">
+      Browse Files
+      <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt">
+    </label>
+  </div>
+
+  <div class="result-card" id="scoreCard">
+    <div class="score-circle" id="scoreCircle" style="--score:0">
+      <div class="score-inner">
+        <span id="scoreValue">0</span>
+      </div>
+    </div>
+    <div style="text-align:center;margin-bottom:2rem">
+      <div style="font-family:var(--fd);font-size:1.2rem;font-weight:700;margin-bottom:.5rem">ATS Compatibility Score</div>
+      <div style="font-size:.85rem;color:var(--text2)" id="scoreDesc"></div>
+    </div>
+  </div>
+
+  <div class="result-card" id="keywordsCard">
+    <div class="section-title">🎯 Missing Keywords</div>
+    <div class="keyword-grid" id="keywordGrid"></div>
+  </div>
+
+  <div class="result-card" id="bulletsCard">
+    <div class="section-title">✨ Improved Bullets</div>
+    <ul class="bullet-list" id="bulletList"></ul>
+  </div>
+
+  <div class="result-card" id="actionsCard">
+    <button class="action-btn" id="downloadBtn" onclick="generatePDF()">
+      <span>📥 Download Optimized Resume</span>
+    </button>
+  </div>
+</div>
+
+<script>
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+let currentResume = null;
+
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+  uploadArea.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); });
+});
+
+['dragenter', 'dragover'].forEach(evt => {
+  uploadArea.addEventListener(evt, () => uploadArea.classList.add('dragover'));
+});
+
+['dragleave', 'drop'].forEach(evt => {
+  uploadArea.addEventListener(evt, () => uploadArea.classList.remove('dragover'));
+});
+
+uploadArea.addEventListener('drop', e => {
+  const file = e.dataTransfer.files[0];
+  if(file) handleFile(file);
+});
+
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if(file) handleFile(file);
+});
+
+async function handleFile(file) {
+  if(file.size > 5 * 1024 * 1024) {
+    alert('File too large. Max 5MB');
+    return;
+  }
+
+  const text = await file.text();
+  currentResume = text;
+  analyzeResume(text);
+}
+
+async function analyzeResume(text) {
+  uploadArea.innerHTML = '<div class="spinner"></div><div style="margin-top:1rem;font-size:.9rem;color:var(--text2)">Analyzing resume...</div>';
+
+  try {
+    const result = await callClaude([
+      {
+        role: 'user',
+        content: `Analyze this resume for ATS compatibility. Return JSON only:
+{
+  "score": number (0-100),
+  "description": string,
+  "missingKeywords": [strings],
+  "improvedBullets": [{before: string, after: string}]
+}
+
+Resume:
+${text}`
+      }
+    ], 'You are an ATS resume analyzer. Return only valid JSON, no markdown.');
+
+    const data = JSON.parse(result.content[0].text.replace(/```json|```/g, '').trim());
+    displayResults(data);
+  } catch(err) {
+    alert('Analysis failed: ' + err.message);
+    location.reload();
+  }
+}
+
+function displayResults(data) {
+  uploadArea.innerHTML = '<div style="color:var(--green);font-size:.9rem">✓ Analysis complete</div>';
+
+  const scoreCircle = document.getElementById('scoreCircle');
+  const scoreValue = document.getElementById('scoreValue');
+  const scoreDesc = document.getElementById('scoreDesc');
+  
+  scoreCircle.style.setProperty('--score', data.score);
+  scoreValue.textContent = data.score;
+  scoreDesc.textContent = data.description;
+  document.getElementById('scoreCard').classList.add('show');
+
+  const keywordGrid = document.getElementById('keywordGrid');
+  keywordGrid.innerHTML = data.missingKeywords.slice(0, 12).map(kw => 
+    `<div class="keyword">${kw}</div>`
+  ).join('');
+  document.getElementById('keywordsCard').classList.add('show');
+
+  const bulletList = document.getElementById('bulletList');
+  bulletList.innerHTML = data.improvedBullets.slice(0, 5).map(b => 
+    `<li>
+      <div class="bullet-before">Before: ${b.before}</div>
+      <div class="bullet-after">After: ${b.after}</div>
+    </li>`
+  ).join('');
+  document.getElementById('bulletsCard').classList.add('show');
+  document.getElementById('actionsCard').classList.add('show');
+}
+
+function generatePDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  
+  doc.setFontSize(20);
+  doc.text('Optimized Resume', 20, 20);
+  
+  doc.setFontSize(12);
+  const lines = doc.splitTextToSize(currentResume || 'No content', 170);
+  doc.text(lines, 20, 35);
+  
+  doc.save('optimized-resume.pdf');
+}
+</script>
+
+</body>
+</html>
