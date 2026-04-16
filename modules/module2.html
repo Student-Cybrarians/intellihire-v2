@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Module 02 — Aptitude Round</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="../config.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#06060f;--bg2:#0d0d1a;--surface:#1a1a2e;--border:#ffffff12;--border2:#ffffff1e;--cyan:#00d4ff;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;--text:#f0f0ff;--text2:#a0a0c0;--text3:#60607a;--fd:'Syne',sans-serif;--fm:'JetBrains Mono',monospace;--fb:'DM Sans',sans-serif;--r:12px}
+body{background:var(--bg);color:var(--text);font-family:var(--fb);min-height:100vh}
+nav{position:sticky;top:0;z-index:100;background:rgba(6,6,15,.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-logo{font-family:var(--fd);font-size:1.1rem;font-weight:800}
+.nav-logo span{color:var(--cyan)}
+.nav-links a{font-size:.82rem;color:var(--text2);text-decoration:none;margin-left:1.5rem}
+.nav-links a:hover{color:var(--cyan)}
+.container{max-width:800px;margin:0 auto;padding:3rem 2rem}
+.header{text-align:center;margin-bottom:3rem}
+.header h1{font-family:var(--fd);font-size:2.2rem;font-weight:800;margin-bottom:.75rem}
+.header h1 span{color:var(--cyan)}
+.question-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:2rem;margin-bottom:2rem}
+.q-text{font-size:1.1rem;margin-bottom:1.5rem;line-height:1.7}
+.options{display:flex;flex-direction:column;gap:.75rem}
+.option{background:var(--surface);border:1px solid var(--border2);padding:1rem;border-radius:8px;cursor:pointer;transition:all .2s}
+.option:hover{border-color:var(--cyan);transform:translateX(4px)}
+.option.selected{border-color:var(--cyan);background:rgba(0,212,255,.1)}
+.controls{display:flex;gap:1rem;justify-content:center}
+.btn{padding:12px 28px;background:var(--cyan);color:#000;border:none;border-radius:var(--r);font-family:var(--fm);font-size:.85rem;font-weight:500;cursor:pointer;transition:all .2s}
+.btn:hover{transform:translateY(-2px)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:2rem}
+.stat{background:var(--bg2);border:1px solid var(--border);padding:1.5rem;border-radius:var(--r);text-align:center}
+.stat-val{font-family:var(--fd);font-size:2rem;font-weight:800;color:var(--cyan)}
+.stat-label{font-size:.8rem;color:var(--text3);margin-top:.5rem}
+#chartContainer{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:2rem;margin-top:2rem;display:none}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Intelli<span>Hire</span></div>
+  <div class="nav-links">
+    <a href="../index.html">Home</a>
+    <a href="../about.html">About</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="header">
+    <h1>Module 02 — <span>Aptitude Round</span></h1>
+    <p>Adaptive MCQ test with AI-powered difficulty adjustment</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val" id="qNum">0</div>
+      <div class="stat-label">Question</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="score">0</div>
+      <div class="stat-label">Score</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="streak">0</div>
+      <div class="stat-label">Streak</div>
+    </div>
+  </div>
+
+  <div class="question-card" id="questionCard">
+    <div class="q-text" id="questionText">Click "Start Test" to begin</div>
+    <div class="options" id="optionsContainer"></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="startBtn" onclick="startTest()">Start Test</button>
+    <button class="btn" id="nextBtn" onclick="nextQuestion()" style="display:none">Next Question</button>
+    <button class="btn" id="finishBtn" onclick="finishTest()" style="display:none">Finish Test</button>
+  </div>
+
+  <div id="chartContainer">
+    <canvas id="performanceChart"></canvas>
+  </div>
+</div>
+
+<script>
+let questionNum = 0;
+let totalScore = 0;
+let streak = 0;
+let currentQuestion = null;
+let selectedAnswer = null;
+let topicScores = {logical:0, quant:0, verbal:0};
+
+async function startTest() {
+  document.getElementById('startBtn').style.display = 'none';
+  questionNum = 0;
+  totalScore = 0;
+  streak = 0;
+  nextQuestion();
+}
+
+async function nextQuestion() {
+  questionNum++;
+  selectedAnswer = null;
+  document.getElementById('qNum').textContent = questionNum;
+  document.getElementById('nextBtn').style.display = 'none';
+  
+  const topics = ['Logical Reasoning', 'Quantitative Aptitude', 'Verbal Ability'];
+  const topic = topics[questionNum % 3];
+  
+  const difficulty = streak >= 3 ? 'hard' : streak <= -2 ? 'easy' : 'medium';
+  
+  const result = await callClaude([{
+    role: 'user',
+    content: `Generate 1 ${difficulty} ${topic} MCQ. Return JSON only:
+{
+  "question": "question text",
+  "options": ["A","B","C","D"],
+  "correct": index (0-3),
+  "explanation": "brief explanation"
+}`
+  }], 'Return only valid JSON.');
+  
+  currentQuestion = JSON.parse(result.content[0].text.replace(/```json|```/g, '').trim());
+  
+  document.getElementById('questionText').textContent = currentQuestion.question;
+  
+  const optionsHTML = currentQuestion.options.map((opt, i) => 
+    `<div class="option" onclick="selectOption(${i})">${String.fromCharCode(65+i)}. ${opt}</div>`
+  ).join('');
+  
+  document.getElementById('optionsContainer').innerHTML = optionsHTML;
+  
+  if(questionNum >= 10) {
+    document.getElementById('finishBtn').style.display = 'inline-block';
+  }
+}
+
+function selectOption(idx) {
+  document.querySelectorAll('.option').forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+  selectedAnswer = idx;
+  
+  const correct = selectedAnswer === currentQuestion.correct;
+  if(correct) {
+    totalScore += 10;
+    streak++;
+    const topic = ['logical','quant','verbal'][questionNum % 3];
+    topicScores[topic] += 10;
+  } else {
+    streak = Math.min(0, streak - 1);
+  }
+  
+  document.getElementById('score').textContent = totalScore;
+  document.getElementById('streak').textContent = streak;
+  document.getElementById('nextBtn').style.display = 'inline-block';
+}
+
+function finishTest() {
+  document.getElementById('questionCard').innerHTML = `
+    <h2 style="font-family:var(--fd);text-align:center;margin-bottom:1rem">Test Complete!</h2>
+    <p style="text-align:center;color:var(--text2)">Final Score: ${totalScore}/100</p>
+  `;
+  document.getElementById('finishBtn').style.display = 'none';
+  document.getElementById('nextBtn').style.display = 'none';
+  
+  showChart();
+}
+
+function showChart() {
+  document.getElementById('chartContainer').style.display = 'block';
+  
+  new Chart(document.getElementById('performanceChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Logical', 'Quantitative', 'Verbal'],
+      datasets: [{
+        label: 'Score',
+        data: [topicScores.logical, topicScores.quant, topicScores.verbal],
+        backgroundColor: ['#00d4ff', '#22c55e', '#f59e0b']
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {display: false}
+      },
+      scales: {
+        y: {beginAtZero: true, max: 40}
+      }
+    }
+  });
+}
+</script>
+
+</body>
+</html>

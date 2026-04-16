@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Module 05 — Behavioral Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="../config.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#06060f;--bg2:#0d0d1a;--surface:#1a1a2e;--border:#ffffff12;--border2:#ffffff1e;--cyan:#00d4ff;--green:#22c55e;--red:#ef4444;--text:#f0f0ff;--text2:#a0a0c0;--text3:#60607a;--fd:'Syne',sans-serif;--fm:'JetBrains Mono',monospace;--fb:'DM Sans',sans-serif;--r:12px}
+body{background:var(--bg);color:var(--text);font-family:var(--fb);min-height:100vh}
+nav{position:sticky;top:0;z-index:100;background:rgba(6,6,15,.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-logo{font-family:var(--fd);font-size:1.1rem;font-weight:800}
+.nav-logo span{color:var(--cyan)}
+.nav-links a{font-size:.82rem;color:var(--text2);text-decoration:none;margin-left:1.5rem}
+.container{max-width:1000px;margin:0 auto;padding:3rem 2rem}
+.header{text-align:center;margin-bottom:3rem}
+.header h1{font-family:var(--fd);font-size:2.2rem;font-weight:800;margin-bottom:.75rem}
+.header h1 span{color:var(--cyan)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem}
+.panel-title{font-family:var(--fd);font-size:1.1rem;font-weight:700;margin-bottom:1rem}
+video{width:100%;border-radius:var(--r);background:#000}
+.btn{padding:12px 24px;background:var(--cyan);color:#000;border:none;border-radius:var(--r);font-family:var(--fm);font-size:.85rem;font-weight:500;cursor:pointer;margin-top:1rem}
+.btn:hover{transform:translateY(-2px)}
+.btn.recording{background:var(--red);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.7)}50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
+#transcript{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:1rem;min-height:200px;font-size:.85rem;line-height:1.7;max-height:300px;overflow-y:auto}
+#report{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:2rem;display:none;margin-top:2rem}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Intelli<span>Hire</span></div>
+  <div class="nav-links">
+    <a href="../index.html">Home</a>
+    <a href="../about.html">About</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="header">
+    <h1>Module 05 — <span>Behavioral Analysis</span></h1>
+    <p>Webcam recording with real-time transcript and behavioral scoring</p>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">Video Feed</div>
+      <video id="video" autoplay muted></video>
+      <button class="btn" id="recordBtn" onclick="toggleRecording()">Start Recording</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Live Transcript</div>
+      <div id="transcript">Transcript will appear here...</div>
+    </div>
+  </div>
+
+  <div id="report"></div>
+</div>
+
+<script>
+let stream;
+let recorder;
+let isRecording = false;
+let recognition;
+let transcript = '';
+
+async function initCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    document.getElementById('video').srcObject = stream;
+  } catch(err) {
+    alert('Camera access denied: ' + err.message);
+  }
+}
+
+function initSpeech() {
+  if (!('webkitSpeechRecognition' in window)) {
+    alert('Speech recognition not supported');
+    return;
+  }
+  
+  recognition = new webkitSpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  
+  recognition.onresult = (event) => {
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        transcript += event.results[i][0].transcript + ' ';
+      } else {
+        interim += event.results[i][0].transcript;
+      }
+    }
+    document.getElementById('transcript').textContent = transcript + interim;
+  };
+}
+
+async function toggleRecording() {
+  const btn = document.getElementById('recordBtn');
+  
+  if (!isRecording) {
+    if (!stream) await initCamera();
+    if (!recognition) initSpeech();
+    
+    recorder = new MediaRecorder(stream);
+    recognition.start();
+    
+    btn.textContent = 'Stop Recording';
+    btn.classList.add('recording');
+    isRecording = true;
+    
+    setTimeout(() => {
+      if (isRecording) toggleRecording();
+    }, 60000); // Auto-stop after 1 min
+    
+  } else {
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+    if (recognition) recognition.stop();
+    
+    btn.textContent = 'Start Recording';
+    btn.classList.remove('recording');
+    isRecording = false;
+    
+    analyzeSession();
+  }
+}
+
+async function analyzeSession() {
+  if (!transcript.trim()) {
+    alert('No transcript recorded');
+    return;
+  }
+  
+  const result = await callClaude([{
+    role: 'user',
+    content: `Analyze this interview transcript for behavioral traits. Return JSON only:
+{
+  "confidence": N (0-100),
+  "clarity": N,
+  "engagement": N,
+  "professionalism": N,
+  "insights": "brief analysis"
+}
+
+Transcript: ${transcript}`
+  }], 'Return only JSON.');
+  
+  const scores = JSON.parse(result.content[0].text.replace(/```json|```/g, '').trim());
+  
+  document.getElementById('report').innerHTML = `
+    <h2 style="font-family:var(--fd);margin-bottom:2rem;text-align:center">Behavioral Analysis Report</h2>
+    <canvas id="radarChart" style="max-width:500px;margin:0 auto 2rem"></canvas>
+    <div style="background:var(--surface);padding:1.5rem;border-radius:var(--r)">
+      <h3 style="font-family:var(--fd);margin-bottom:1rem">Insights</h3>
+      <p style="line-height:1.7">${scores.insights}</p>
+    </div>
+  `;
+  
+  document.getElementById('report').style.display = 'block';
+  
+  new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+      labels: ['Confidence', 'Clarity', 'Engagement', 'Professionalism'],
+      datasets: [{
+        label: 'Behavioral Scores',
+        data: [scores.confidence, scores.clarity, scores.engagement, scores.professionalism],
+        backgroundColor: 'rgba(0,212,255,0.2)',
+        borderColor: '#00d4ff',
+        pointBackgroundColor: '#00d4ff'
+      }]
+    },
+    options: {
+      scales: {
+        r: {
+          beginAtZero: true,
+          max: 100,
+          ticks: { stepSize: 20 }
+        }
+      }
+    }
+  });
+}
+
+initCamera();
+</script>
+
+</body>
+</html>
