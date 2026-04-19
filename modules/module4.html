@@ -121,7 +121,7 @@ async function sendMessage() {
   
   conversationHistory.push({ role: 'user', content: text });
   
-  const result = await callClaude([...conversationHistory], 
+  const result = await callAI([...conversationHistory], 
     'You are an HR interviewer. Ask STAR-method questions. Keep responses under 50 words.');
   
   const reply = result.content[0].text;
@@ -152,7 +152,7 @@ async function generateReport() {
   const wordCount = fullTranscript.split(' ').length;
   const fluencyScore = Math.max(0, 100 - (fillerWords * 10));
   
-  const result = await callClaude([{
+  const result = await callAI([{
     role: 'user',
     content: `Analyze this interview transcript and provide scores (0-100) for: Communication, STAR Method Usage, Confidence. Return JSON only: {"communication":N,"star":N,"confidence":N,"feedback":"brief"}\n\n${fullTranscript}`
   }], 'Return only JSON.');

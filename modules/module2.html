@@ -111,7 +111,7 @@ async function nextQuestion() {
   
   const difficulty = streak >= 3 ? 'hard' : streak <= -2 ? 'easy' : 'medium';
   
-  const result = await callClaude([{
+  const result = await callAI([{
     role: 'user',
     content: `Generate 1 ${difficulty} ${topic} MCQ. Return JSON only:
 {

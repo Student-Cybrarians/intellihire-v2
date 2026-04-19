@@ -138,7 +138,7 @@ async function analyzeSession() {
     return;
   }
   
-  const result = await callClaude([{
+  const result = await callAI([{
     role: 'user',
     content: `Analyze this interview transcript for behavioral traits. Return JSON only:
 {

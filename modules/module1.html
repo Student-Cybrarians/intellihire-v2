@@ -150,7 +150,7 @@ async function analyzeResume(text) {
   uploadArea.innerHTML = '<div class="spinner"></div><div style="margin-top:1rem;font-size:.9rem;color:var(--text2)">Analyzing resume...</div>';
 
   try {
-    const result = await callClaude([
+    const result = await callAI([
       {
         role: 'user',
         content: `Analyze this resume for ATS compatibility. Return JSON only:
