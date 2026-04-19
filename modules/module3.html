@@ -74,7 +74,7 @@ require(['vs/editor/editor.main'], function () {
 });
 
 async function generateProblem() {
-  const result = await callClaude([{
+  const result = await callAI([{
     role: 'user',
     content: 'Generate a medium-difficulty coding problem. Return JSON: {"title":"","description":"","examples":"","constraints":""}'
   }], 'Return only JSON.');
@@ -96,7 +96,7 @@ async function submitCode() {
   feedbackEl.style.display = 'block';
   feedbackEl.textContent = 'Analyzing code...';
   
-  const result = await callClaude([{
+  const result = await callAI([{
     role: 'user',
     content: `Review this code:\n\n${code}\n\nProvide: 1) Correctness 2) Time/space complexity 3) Suggestions`
   }], 'You are a technical interviewer.');

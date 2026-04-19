@@ -14,7 +14,7 @@ Upload resume → Get ATS score → Keyword analysis → Download optimized PDF
 Adaptive MCQ test with difficulty adjustment, voice mode, performance charts
 
 ### Module 03 — Technical Round
-Live code editor with Monaco, Claude code review, problem generation
+Live code editor with Monaco, AI code review, problem generation
 
 ### Module 04 — HR Simulator
 Voice-enabled HR interview, STAR method analysis, filler word detection
@@ -24,21 +24,21 @@ Webcam recording, real-time transcript, behavioral scoring with radar charts
 
 ## Tech Stack
 - **Frontend**: Pure HTML/CSS/JavaScript
-- **AI**: Anthropic Claude API (Sonnet 4)
+- **AI**: OpenAI GPT-4o API
 - **Deployment**: GitHub Pages + GitHub Actions
 - **Libraries**: Chart.js, jsPDF, Monaco Editor
 
 ## Architecture
 - Client-side only (no backend server)
 - API key injected at build time via GitHub Actions
-- Direct browser → Claude API communication
+- Direct browser → OpenAI API communication
 - Auto-deploys on push to main branch
 
 ## Setup
 
 1. **Add API Key as GitHub Secret**:
    - Go to Repository Settings → Secrets and variables → Actions
-   - Add new secret: `ANTHROPIC_API_KEY` with your key
+   - Add new secret: `OPENAI_API_KEY` with your key
 
 2. **Enable GitHub Pages**:
    - Settings → Pages
@@ -56,7 +56,7 @@ GitHub Actions will automatically inject the API key and deploy to Pages.
 
 Replace the placeholder in `config.js`:
 ```javascript
-const ANTHROPIC_API_KEY = 'your-api-key-here';
+const OPENAI_API_KEY = 'your-api-key-here';
 ```
 
 Then open `index.html` in a browser.
@@ -66,4 +66,4 @@ Then open `index.html` in a browser.
 
 ---
 
-© 2025 IntelliHire · Powered by Anthropic Claude API
+© 2025 IntelliHire · Powered by OpenAI GPT-4o API

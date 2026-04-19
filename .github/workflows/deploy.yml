@@ -17,9 +17,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inject API Key
+      - name: Inject OpenAI API Key
         run: |
-          sed -i "s/PLACEHOLDER_WILL_BE_REPLACED_BY_GITHUB_ACTIONS/${{ secrets.ANTHROPIC_API_KEY }}/g" config.js
+          sed -i "s/PLACEHOLDER_OPENAI_KEY/${{ secrets.OPENAI_API_KEY }}/g" config.js
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
