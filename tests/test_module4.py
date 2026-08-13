@@ -1,22 +1,31 @@
 import unittest
-from module4_hr import start_interview, next_question, submit_answer, finish_interview, analyze_answer
+from module4_liftoff import start, question, answer, finish, score_transcript
+
 
 class Module4EngineTests(unittest.TestCase):
     def test_star_analysis(self):
-        result = analyze_answer('In a project situation I was responsible for a goal and built a solution that improved delivery and achieved the result.')
+        result = score_transcript(
+            'In a project situation I was responsible for a goal and built a solution that improved delivery and achieved the result.',
+            'Tell me about a difficult project or responsibility you owned.'
+        )
         self.assertIn('star_score', result)
         self.assertGreaterEqual(result['clarity'], 55)
 
     def test_interview_lifecycle(self):
-        state = start_interview()
-        self.assertEqual(state['status'], 'CREATED')
-        question = next_question(state)
-        self.assertIsNotNone(question)
-        event = submit_answer(state, 'I led the team, resolved the issue and improved the result.')
+        state = start_interview_compat()
+        self.assertEqual(state['status'], 'IN_PROGRESS')
+        question_data = question(state)
+        self.assertIsNotNone(question_data)
+        event = answer(state, 'I led the team, resolved the issue and improved the result.')
         self.assertIn('metrics', event)
-        result = finish_interview(state)
+        result = finish(state)
         self.assertEqual(state['status'], 'COMPLETED')
         self.assertIn('score', result)
+
+
+def start_interview_compat():
+    return start()
+
 
 if __name__ == '__main__':
     unittest.main()
