@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, request
 import re, uuid
+from auth_routes import require_auth
+from auth_db import record_performance
 
 module3 = Blueprint('module3', __name__, url_prefix='/api/module3')
 SESSIONS = {}
@@ -16,33 +18,50 @@ def score_answer(text):
     quality=min(100, round(45 + min(35,n/3) + hits*3))
     return {'score':quality,'accuracy':quality,'communication':min(100,50+n*2),'concept_hits':hits}
 
+def _auth():
+    user,response=require_auth('USER')
+    return user,response
+
 @module3.post('/start')
 def start():
+    user,response=_auth()
+    if response:return response
     sid='tech-'+uuid.uuid4().hex[:12]
-    state={'id':sid,'role':(request.get_json(silent=True) or {}).get('role','Software Engineer'),'index':0,'events':[]}
+    state={'id':sid,'user_id':user['id'],'role':(request.get_json(silent=True) or {}).get('role','Software Engineer'),'index':0,'events':[]}
     SESSIONS[sid]=state
     return jsonify({'session':state,'question':QUESTIONS[0]}),201
 
 @module3.get('/question')
 def question():
+    user,response=_auth()
+    if response:return response
     sid=request.args.get('session_id'); s=SESSIONS.get(sid)
-    if not s:return jsonify({'error':'session_not_found'}),404
+    if not s or s.get('user_id')!=user['id']:return jsonify({'error':'session_not_found'}),404
     q=QUESTIONS[s['index']] if s['index']<len(QUESTIONS) else None
     return jsonify({'question':q,'progress':s['index'],'total':len(QUESTIONS)})
 
 @module3.post('/answer')
 def answer():
+    user,response=_auth()
+    if response:return response
     data=request.get_json(silent=True) or {}; s=SESSIONS.get(data.get('session_id'))
-    if not s:return jsonify({'error':'session_not_found'}),404
+    if not s or s.get('user_id')!=user['id']:return jsonify({'error':'session_not_found'}),404
     text=str(data.get('answer','')).strip()
     if not text:return jsonify({'error':'answer_required'}),422
+    if s['index']>=len(QUESTIONS):return jsonify({'error':'interview_complete'}),409
     q=QUESTIONS[s['index']]; result=score_answer(text)
     s['events'].append({'question':q,'answer':text,'evaluation':result}); s['index']+=1
     return jsonify({'evaluation':result,'next':QUESTIONS[s['index']] if s['index']<len(QUESTIONS) else None})
 
 @module3.post('/finish')
 def finish():
+    user,response=_auth()
+    if response:return response
     data=request.get_json(silent=True) or {}; s=SESSIONS.get(data.get('session_id'))
-    if not s:return jsonify({'error':'session_not_found'}),404
+    if not s or s.get('user_id')!=user['id']:return jsonify({'error':'session_not_found'}),404
     scores=[e['evaluation']['score'] for e in s['events']]
-    return jsonify({'score':round(sum(scores)/len(scores),1) if scores else 0,'questions_answered':len(scores),'events':s['events']})
+    score=round(sum(scores)/len(scores),1) if scores else 0
+    result={'score':score,'questions_answered':len(scores),'events':s['events']}
+    try: record_performance(user['id'],'module3',score,result)
+    except Exception: pass
+    return jsonify(result)
