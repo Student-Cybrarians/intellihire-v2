@@ -1,31 +1,22 @@
-# IntelliHire — Module 1
+# IntelliHire — Module 3
 
-Python/Flask recruitment screening application with a vanilla HTML/CSS/JavaScript frontend.
+AI Technical Interview Simulator — frontend-only demo.
 
-## Module 1 routes
-- `/app/dashboard`
-- `/app/module1/overview`
-- `/app/module1/upload/resume`
-- `/app/module1/upload/job-description`
-- `/app/module1/analyzing`
-- `/app/module1/results/ats-score`
-- `/app/module1/results/matching`
-- `/app/module1/results/skills`
-- `/app/module1/results/keywords`
-- `/app/module1/results/shortlist`
-- `/app/module1/optimize/summary`
-- `/app/module1/optimize/experience`
-- `/app/module1/optimize/projects`
-- `/app/module1/optimize/skills`
-- `/app/module1/report`
-- `/app/module1/history`
+## Features
+- Technical interview setup and instructions
+- AI interviewer simulation and contextual follow-ups
+- Monaco live coding workspace
+- Simulated Run Code / Submit / test cases
+- Technical evaluation, score, complexity and code-quality analysis
+- Strengths, improvement areas, recommendations and roadmap
+- Interview history stored in local browser state
+- Responsive dark enterprise IntelliHire UI
 
-## ML
-The demo uses deterministic Python algorithms: tokenization, skill extraction, term-frequency vectors, cosine similarity, keyword coverage, and a centralized weighted ATS score. It is not a production AI model and shortlist decisions are explicitly simulated.
+## Demo limitation
+This implementation intentionally uses deterministic local mock behavior. It does **not** perform real AI inference, remote code execution, database persistence, audio/video upload, or backend evaluation.
 
 ## Run
-`pip install -r requirements.txt`
+`npm install`
+`npm run dev`
 
-`python app.py`
-
-Open `http://localhost:5000/app/module1/overview`.
+Open `/app/module3`.
