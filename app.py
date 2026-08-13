@@ -6,10 +6,12 @@ from module2_engine import QUESTION_BANK,evaluate_answer,select_next,score_asses
 from module3_routes import module3
 from module4_routes import module4
 from module5_routes import module5
+from auth_routes import auth,current_user,require_auth
 
 app=Flask(__name__,static_folder='static',template_folder='templates')
 app.secret_key=os.getenv('FLASK_SECRET_KEY','dev-only-change-me')
-app.register_blueprint(module2);app.register_blueprint(module3);app.register_blueprint(module4);app.register_blueprint(module5)
+app.config.update(SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SECURE=True,SESSION_COOKIE_SAMESITE='Lax')
+app.register_blueprint(auth);app.register_blueprint(module2);app.register_blueprint(module3);app.register_blueprint(module4);app.register_blueprint(module5)
 SKILLS=['python','javascript','react','node.js','java','sql','mongodb','postgresql','rest api','docker','kubernetes','aws','fastapi','flask','django','pytorch','tensorflow','nlp','machine learning','deep learning','scikit-learn','system design','microservices','git','linux','pandas','numpy']
 DEMO={'name':'Alex Johnson','role':'Software Engineer','company':'TechNova','skills':['Python','React','JavaScript','Node.js','MongoDB','REST API','Git','Pandas','NumPy'],'experience':3}
 JOB={'company':'TechNova','role':'Software Engineer','required':['Python','React','Node.js','REST API','Git'],'preferred':['Docker','AWS','System Design']}
@@ -20,33 +22,58 @@ def cosine(a,b):
  k=set(a)|set(b);d=sum(a.get(x,0)*b.get(x,0) for x in k);na=math.sqrt(sum(v*v for v in a.values()));nb=math.sqrt(sum(v*v for v in b.values()));return d/(na*nb) if na and nb else 0
 def analyze(p):
  r=p.get('resume',DEMO);j=p.get('job',JOB);rt=' '.join(map(str,r.values()));jt=' '.join(map(str,j.values()));rs=set(skillset(rt));req=skillset(jt);found=[x for x in req if x in rs];missing=[x for x in req if x not in rs];rv=Counter(toks(rt));jv=Counter(toks(jt));sim=cosine(rv,jv)*100;sm=len(found)/max(len(req),1)*100;kw=len(set(toks(jt))&set(toks(rt)))/max(len(set(toks(jt))),1)*100;ats=round(.3*kw+.3*sm+.2*sim+.2*95);return{'atsScore':ats,'overallMatch':round((ats+sm+sim)/3),'skillsMatch':round(sm),'keywordMatch':round(kw),'semanticSimilarity':round(sim),'missingSkills':missing,'shortlist':'SHORTLISTED' if ats>=80 else 'CONSIDER','candidate':r,'job':j,'isSimulated':True}
+
 @app.get('/')
-def home():return render_template('index.html')
+def home():
+    if current_user():
+        return redirect('/app/dashboard')
+    return render_template('signin.html')
+
+@app.get('/app/dashboard')
+def dashboard():
+    user, response = require_auth('USER')
+    if response: return response
+    return render_template('dashboard.html', user=user)
+
 @app.get('/app/<path:path>')
 def shell(path):
- if path.startswith('module2'): return render_template('module2.html')
- if path.startswith('module3'): return render_template('module3.html')
- if path.startswith('module4'): return render_template('module4.html')
- if path.startswith('module5'): return render_template('module5.html')
- return render_template('index.html')
+    user=current_user()
+    if not user:
+        return redirect('/')
+    if path.startswith('module2'): return render_template('module2.html')
+    if path.startswith('module3'): return render_template('module3.html')
+    if path.startswith('module4'): return render_template('module4.html')
+    if path.startswith('module5'): return render_template('module5.html')
+    return redirect('/app/dashboard')
+
 @app.post('/app/module2/start')
 def start_m2():
- session['m2']={'ability':0.0,'answered':[],'events':[],'section':request.form.get('section',''),'count':int(request.form.get('count',8))};return redirect('/app/module2/assessment')
+    user, response = require_auth('USER')
+    if response: return response
+    session['m2']={'ability':0.0,'answered':[],'events':[],'section':request.form.get('section',''),'count':int(request.form.get('count',8))};return redirect('/app/module2/assessment')
 @app.route('/app/module2/assessment',methods=['GET','POST'])
 def assessment():
- s=session.get('m2',{'ability':0.0,'answered':[],'events':[],'section':'','count':8})
- if request.method=='POST':
-  q=next((x for x in QUESTION_BANK if x.id==request.form.get('question_id')),None)
-  if q:
-   e=evaluate_answer(s['ability'],q,int(request.form.get('answer',-1)));s['events'].append(e);s['answered'].append(q.id);s['ability']=e['ability_after'];session['m2']=s
- if len(s['events'])>=s['count']:return redirect('/app/module2/results')
- q=select_next(s['ability'],s['answered'],s['section'] or None);return render_template('module2_assessment.html',question=q,ability=s['ability'],progress=len(s['events']),total=s['count'])
+    user, response = require_auth('USER')
+    if response: return response
+    s=session.get('m2',{'ability':0.0,'answered':[],'events':[],'section':'','count':8})
+    if request.method=='POST':
+        q=next((x for x in QUESTION_BANK if x.id==request.form.get('question_id')),None)
+        if q:
+            e=evaluate_answer(s['ability'],q,int(request.form.get('answer',-1)));s['events'].append(e);s['answered'].append(q.id);s['ability']=e['ability_after'];session['m2']=s
+    if len(s['events'])>=s['count']:return redirect('/app/module2/results')
+    q=select_next(s['ability'],s['answered'],s['section'] or None);return render_template('module2_assessment.html',question=q,ability=s['ability'],progress=len(s['events']),total=s['count'])
 @app.get('/app/module2/results')
-def m2_results():return render_template('module2_results.html',result=score_assessment(session.get('m2',{}).get('events',[])))
+def m2_results():
+    user, response = require_auth('USER')
+    if response: return response
+    return render_template('module2_results.html',result=score_assessment(session.get('m2',{}).get('events',[])))
 @app.get('/api/health')
-def health():return jsonify({'status':'ok','engine':'IntelliHire Python ML Engine','version':'2.5','modules':['module1','module2','module3','module4','module5']})
+def health():return jsonify({'status':'ok','engine':'IntelliHire Python ML Engine','version':'2.6','modules':['module1','module2','module3','module4','module5'],'auth':'enabled'})
 @app.get('/api/demo')
 def demo():return jsonify({'resume':DEMO,'job':JOB,'result':analyze({})})
 @app.post('/api/analyze')
-def api_analyze():return jsonify(analyze(request.get_json(silent=True) or {}))
+def api_analyze():
+    user, response = require_auth('USER')
+    if response: return response
+    return jsonify(analyze(request.get_json(silent=True) or {}))
 if __name__=='__main__':app.run(host='0.0.0.0',port=int(os.getenv('PORT','5000')))
