@@ -1,12 +1,15 @@
 from flask import Flask,jsonify,request,render_template,session,redirect
-import re,math
+import os,re,math
 from collections import Counter
 from module2_routes import module2
 from module2_engine import QUESTION_BANK,evaluate_answer,select_next,score_assessment
 from module3_routes import module3
 from module4_routes import module4
 from module5_routes import module5
-app=Flask(__name__,static_folder='static',template_folder='templates');app.secret_key='intellihire-demo';app.register_blueprint(module2);app.register_blueprint(module3);app.register_blueprint(module4);app.register_blueprint(module5)
+
+app=Flask(__name__,static_folder='static',template_folder='templates')
+app.secret_key=os.getenv('FLASK_SECRET_KEY','dev-only-change-me')
+app.register_blueprint(module2);app.register_blueprint(module3);app.register_blueprint(module4);app.register_blueprint(module5)
 SKILLS=['python','javascript','react','node.js','java','sql','mongodb','postgresql','rest api','docker','kubernetes','aws','fastapi','flask','django','pytorch','tensorflow','nlp','machine learning','deep learning','scikit-learn','system design','microservices','git','linux','pandas','numpy']
 DEMO={'name':'Alex Johnson','role':'Software Engineer','company':'TechNova','skills':['Python','React','JavaScript','Node.js','MongoDB','REST API','Git','Pandas','NumPy'],'experience':3}
 JOB={'company':'TechNova','role':'Software Engineer','required':['Python','React','Node.js','REST API','Git'],'preferred':['Docker','AWS','System Design']}
@@ -46,4 +49,4 @@ def health():return jsonify({'status':'ok','engine':'IntelliHire Python ML Engin
 def demo():return jsonify({'resume':DEMO,'job':JOB,'result':analyze({})})
 @app.post('/api/analyze')
 def api_analyze():return jsonify(analyze(request.get_json(silent=True) or {}))
-if __name__=='__main__':app.run(host='0.0.0.0',port=5000)
+if __name__=='__main__':app.run(host='0.0.0.0',port=int(os.getenv('PORT','5000')))
