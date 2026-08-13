@@ -3,7 +3,6 @@
 Python/Flask recruitment screening application with a vanilla HTML/CSS/JavaScript frontend.
 
 ## Module 1 routes
-
 - `/app/dashboard`
 - `/app/module1/overview`
 - `/app/module1/upload/resume`
@@ -22,11 +21,9 @@ Python/Flask recruitment screening application with a vanilla HTML/CSS/JavaScrip
 - `/app/module1/history`
 
 ## ML
-
-The demo uses real deterministic Python algorithms: tokenization, skill extraction, term-frequency vectors, cosine similarity, keyword coverage, and a centralized weighted ATS score. It is not a production AI model and shortlist decisions are explicitly simulated.
+The demo uses deterministic Python algorithms: tokenization, skill extraction, term-frequency vectors, cosine similarity, keyword coverage, and a centralized weighted ATS score. It is not a production AI model and shortlist decisions are explicitly simulated.
 
 ## Run
-
 `pip install -r requirements.txt`
 
 `python app.py`
