@@ -1,5 +1,5 @@
 from flask import Flask,jsonify,request,render_template,session,redirect,render_template_string,send_file,abort
-import os,re,math
+import os,re,math,json
 from io import BytesIO
 from collections import Counter
 from module2_routes import module2
@@ -109,7 +109,7 @@ def admin_report_selected():
     user,response=require_auth('ADMIN')
     if response:return response
     ids=request.form.getlist('user_id')
-    if not ids: return redirect('/admin')
+    if not ids:return redirect('/admin')
     return send_file(_excel(ids),mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',as_attachment=True,download_name='intellihire_selected_users.xlsx')
 
 @app.get('/admin/users/<user_id>/report.xlsx')
@@ -122,11 +122,11 @@ def admin_report_user(user_id):
 def shell(path):
     user=current_user()
     if not user:return redirect('/')
-    if path.startswith('module2'): return render_template('module2.html')
-    if path.startswith('module3'): return render_template('module3.html')
-    if path.startswith('module4'): return render_template('module4.html')
-    if path.startswith('module5'): return render_template('module5.html')
-    if path.startswith('module1'): return render_template('index.html')
+    if path.startswith('module2'):return render_template('module2.html')
+    if path.startswith('module3'):return render_template('module3.html')
+    if path.startswith('module4'):return render_template('module4.html')
+    if path.startswith('module5'):return render_template('module5.html')
+    if path.startswith('module1'):return render_template('index.html')
     return redirect('/app/dashboard')
 
 @app.post('/app/module2/start')
@@ -145,8 +145,8 @@ def assessment():
             e=evaluate_answer(s['ability'],q,int(request.form.get('answer',-1)));s['events'].append(e);s['answered'].append(q.id);s['ability']=e['ability_after'];session['m2']=s
     if len(s['events'])>=s['count']:
         result=score_assessment(s['events'])
-        try: record_performance(user['id'],'module2',result.get('score',result.get('overall',0)),result)
-        except Exception: pass
+        try:record_performance(user['id'],'module2',result.get('score',result.get('overall',0)),result)
+        except Exception:pass
         return redirect('/app/module2/results')
     q=select_next(s['ability'],s['answered'],s['section'] or None);return render_template('module2_assessment.html',question=q,ability=s['ability'],progress=len(s['events']),total=s['count'])
 @app.get('/app/module2/results')
@@ -154,8 +154,8 @@ def m2_results():
     user,response=require_auth('USER')
     if response:return response
     result=score_assessment(session.get('m2',{}).get('events',[]))
-    try: record_performance(user['id'],'module2',result.get('score',result.get('overall',0)),result)
-    except Exception: pass
+    try:record_performance(user['id'],'module2',result.get('score',result.get('overall',0)),result)
+    except Exception:pass
     return render_template('module2_results.html',result=result)
 
 @app.get('/api/health')
@@ -167,7 +167,7 @@ def api_analyze():
     user,response=require_auth('USER')
     if response:return response
     result=analyze(request.get_json(silent=True) or {})
-    try: record_performance(user['id'],'module1',result.get('atsScore',0),result)
-    except Exception: pass
+    try:record_performance(user['id'],'module1',result.get('atsScore',0),result)
+    except Exception:pass
     return jsonify(result)
 if __name__=='__main__':app.run(host='0.0.0.0',port=int(os.getenv('PORT','5000')))
