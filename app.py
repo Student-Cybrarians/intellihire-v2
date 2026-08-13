@@ -3,7 +3,8 @@ import re,math
 from collections import Counter
 from module2_routes import module2
 from module2_engine import QUESTION_BANK,evaluate_answer,select_next,score_assessment
-app=Flask(__name__,static_folder='static',template_folder='templates');app.secret_key='intellihire-demo';app.register_blueprint(module2)
+from module5_routes import module5
+app=Flask(__name__,static_folder='static',template_folder='templates');app.secret_key='intellihire-demo';app.register_blueprint(module2);app.register_blueprint(module5)
 SKILLS=['python','javascript','react','node.js','java','sql','mongodb','postgresql','rest api','docker','kubernetes','aws','fastapi','flask','django','pytorch','tensorflow','nlp','machine learning','deep learning','scikit-learn','system design','microservices','git','linux','pandas','numpy']
 DEMO={'name':'Alex Johnson','role':'Software Engineer','company':'TechNova','skills':['Python','React','JavaScript','Node.js','MongoDB','REST API','Git','Pandas','NumPy'],'experience':3}
 JOB={'company':'TechNova','role':'Software Engineer','required':['Python','React','Node.js','REST API','Git'],'preferred':['Docker','AWS','System Design']}
@@ -33,7 +34,7 @@ def assessment():
 @app.get('/app/module2/results')
 def m2_results():return render_template('module2_results.html',result=score_assessment(session.get('m2',{}).get('events',[])))
 @app.get('/api/health')
-def health():return jsonify({'status':'ok','engine':'IntelliHire Python ML Engine','version':'2.3','modules':['module1','module2']})
+def health():return jsonify({'status':'ok','engine':'IntelliHire Python ML Engine','version':'2.3','modules':['module1','module2','module5']})
 @app.get('/api/demo')
 def demo():return jsonify({'resume':DEMO,'job':JOB,'result':analyze({})})
 @app.post('/api/analyze')
