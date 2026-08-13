@@ -1,18 +1,24 @@
 import os, secrets, urllib.parse
-from flask import Blueprint, abort, redirect, request, jsonify, session, render_template, make_response
+from flask import Blueprint, abort, redirect, request, jsonify, make_response
 from auth_db import get_or_create_google_user, create_session, get_session, revoke_session, audit
 
 try:
     import requests
 except ImportError:
     requests = None
+try:
+    from google.oauth2 import id_token
+    from google.auth.transport import requests as google_requests
+except ImportError:
+    id_token = None
+    google_requests = None
 
 auth = Blueprint('auth', __name__, url_prefix='/auth')
 OAUTH_STATE_COOKIE = 'intellihire_oauth_state'
+OAUTH_NONCE_COOKIE = 'intellihire_oauth_nonce'
 SESSION_COOKIE = 'intellihire_session'
 GOOGLE_AUTHORIZE = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token'
-GOOGLE_USERINFO = 'https://openidconnect.googleapis.com/v1/userinfo'
 
 
 def current_user():
@@ -29,7 +35,7 @@ def require_auth(role=None):
 
 
 def _google_configured():
-    return all(os.getenv(k) for k in ('GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','GOOGLE_REDIRECT_URI')) and requests is not None
+    return all(os.getenv(k) for k in ('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI')) and requests is not None and id_token is not None and google_requests is not None
 
 
 @auth.get('/google')
@@ -37,6 +43,7 @@ def google_login():
     if not _google_configured():
         return redirect('/?auth_error=google_not_configured')
     state = secrets.token_urlsafe(32)
+    nonce = secrets.token_urlsafe(32)
     params = {
         'client_id': os.getenv('GOOGLE_CLIENT_ID'),
         'redirect_uri': os.getenv('GOOGLE_REDIRECT_URI'),
@@ -44,10 +51,12 @@ def google_login():
         'scope': 'openid email profile',
         'access_type': 'online',
         'state': state,
+        'nonce': nonce,
         'prompt': 'select_account',
     }
     response = make_response(redirect(GOOGLE_AUTHORIZE + '?' + urllib.parse.urlencode(params)))
-    response.set_cookie(OAUTH_STATE_COOKIE, state, max_age=600, httponly=True, secure=True, samesite='Lax')
+    response.set_cookie(OAUTH_STATE_COOKIE, state, max_age=600, httponly=True, secure=True, samesite='Lax', path='/')
+    response.set_cookie(OAUTH_NONCE_COOKIE, nonce, max_age=600, httponly=True, secure=True, samesite='Lax', path='/')
     return response
 
 
@@ -58,35 +67,73 @@ def google_callback():
     if not state or not expected or not secrets.compare_digest(state, expected):
         return redirect('/?auth_error=invalid_oauth_state')
     code = request.args.get('code')
-    if not code or requests is None or not _google_configured():
+    if not code:
+        return redirect('/?auth_error=oauth_cancelled')
+    if not _google_configured():
         return redirect('/?auth_error=oauth_unavailable')
     try:
-        token_response = requests.post(GOOGLE_TOKEN, data={
-            'code': code,
-            'client_id': os.getenv('GOOGLE_CLIENT_ID'),
-            'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
-            'redirect_uri': os.getenv('GOOGLE_REDIRECT_URI'),
-            'grant_type': 'authorization_code',
-        }, timeout=15)
+        token_response = requests.post(
+            GOOGLE_TOKEN,
+            data={
+                'code': code,
+                'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+                'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+                'redirect_uri': os.getenv('GOOGLE_REDIRECT_URI'),
+                'grant_type': 'authorization_code',
+            },
+            timeout=15,
+        )
         token_response.raise_for_status()
-        token = token_response.json().get('access_token')
-        if not token:
-            return redirect('/?auth_error=missing_access_token')
-        profile = requests.get(GOOGLE_USERINFO, headers={'Authorization': f'Bearer {token}'}, timeout=15)
-        profile.raise_for_status()
-        data = profile.json()
-        if not data.get('sub') or not data.get('email'):
+        token_data = token_response.json()
+        raw_id_token = token_data.get('id_token')
+        if not raw_id_token:
+            return redirect('/?auth_error=missing_id_token')
+
+        claims = id_token.verify_oauth2_token(
+            raw_id_token,
+            google_requests.Request(),
+            os.getenv('GOOGLE_CLIENT_ID'),
+        )
+        issuer = claims.get('iss')
+        if issuer not in ('accounts.google.com', 'https://accounts.google.com'):
+            return redirect('/?auth_error=invalid_issuer')
+        if claims.get('nonce') != request.cookies.get(OAUTH_NONCE_COOKIE):
+            return redirect('/?auth_error=invalid_nonce')
+        if claims.get('email_verified') is not True:
+            return redirect('/?auth_error=email_not_verified')
+        if not claims.get('sub') or not claims.get('email'):
             return redirect('/?auth_error=invalid_google_identity')
-        user = get_or_create_google_user(data['sub'], data['email'], data.get('name',''), data.get('picture',''))
+
+        user = get_or_create_google_user(
+            claims['sub'],
+            claims['email'],
+            claims.get('name', ''),
+            claims.get('picture', ''),
+        )
         if user.get('status') != 'ACTIVE':
             return redirect('/?auth_error=account_not_active')
-        raw_session, expires = create_session(user['id'], request.remote_addr, request.headers.get('User-Agent',''))
-        audit('USER_LOGIN', user['id'], user['id'], request.remote_addr, request.headers.get('User-Agent',''), {'provider':'google'})
-        target = '/app/dashboard' if user['role'] == 'USER' else '/admin'
+
+        raw_session, expires = create_session(
+            user['id'],
+            request.remote_addr,
+            request.headers.get('User-Agent', ''),
+        )
+        audit(
+            'USER_LOGIN',
+            user['id'],
+            user['id'],
+            request.remote_addr,
+            request.headers.get('User-Agent', ''),
+            {'provider': 'google'},
+        )
+        target = '/admin' if user['role'] == 'ADMIN' else '/app/dashboard'
         response = make_response(redirect(target))
         response.set_cookie(SESSION_COOKIE, raw_session, expires=expires, httponly=True, secure=True, samesite='Lax', path='/')
-        response.set_cookie(OAUTH_STATE_COOKIE, '', expires=0, httponly=True, secure=True, samesite='Lax')
+        response.set_cookie(OAUTH_STATE_COOKIE, '', expires=0, httponly=True, secure=True, samesite='Lax', path='/')
+        response.set_cookie(OAUTH_NONCE_COOKIE, '', expires=0, httponly=True, secure=True, samesite='Lax', path='/')
         return response
+    except requests.HTTPError:
+        return redirect('/?auth_error=google_token_exchange_failed')
     except Exception:
         return redirect('/?auth_error=authentication_failed')
 
@@ -98,7 +145,7 @@ def logout():
     if raw:
         revoke_session(raw)
     if user:
-        audit('USER_LOGOUT', user['id'], user['id'], request.remote_addr, request.headers.get('User-Agent',''))
+        audit('USER_LOGOUT', user['id'], user['id'], request.remote_addr, request.headers.get('User-Agent', ''))
     response = make_response(redirect('/'))
     response.set_cookie(SESSION_COOKIE, '', expires=0, httponly=True, secure=True, samesite='Lax', path='/')
     return response
@@ -110,17 +157,3 @@ def me():
     if not user:
         return jsonify({'authenticated': False}), 401
     return jsonify({'authenticated': True, 'user': user})
-
-
-@auth.get('/user')
-def user_entry():
-    user, response = require_auth('USER')
-    if response: return response
-    return redirect('/app/dashboard')
-
-
-@auth.get('/admin')
-def admin_entry():
-    user, response = require_auth('ADMIN')
-    if response: return response
-    return render_template('admin.html', user=user)
