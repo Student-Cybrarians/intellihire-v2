@@ -1,7 +1,7 @@
-"""Liftoff-inspired HR interview intelligence layer for IntelliHire.
+"""Liftoff-inspired HR interview intelligence for IntelliHire.
 
-Implements browser-recorded interview processing, transcript scoring, STAR analysis,
-communication metrics, sentiment heuristics, and optional OpenAI transcription/feedback.
+Uses local deterministic scoring plus optional OpenAI/NVIDIA model feedback.
+API credentials are read only from environment variables.
 """
 from datetime import datetime, timezone
 import os
@@ -20,15 +20,11 @@ QUESTIONS = [
     {"id": "hr-05", "category": "Growth", "difficulty": "Medium", "prompt": "Tell me about a failure or mistake and how it changed the way you work."},
 ]
 
-
 def _words(text):
     return re.findall(r"[a-zA-Z']+", (text or "").lower())
 
-
 def score_transcript(transcript, question):
-    words = _words(transcript)
-    n = len(words)
-    text = " ".join(words)
+    words = _words(transcript); n = len(words); text = " ".join(words)
     has = lambda *terms: any(t in text for t in terms)
     fillers = len(re.findall(r"\b(um|uh|erm|like|you know|basically)\b", transcript or "", re.I))
     star = {
@@ -51,55 +47,49 @@ def score_transcript(transcript, question):
     if fillers >= 4: feedback.append("Reduce filler words and use short pauses instead of verbal fillers.")
     if relevance < 70: feedback.append("Tie the answer more directly to the question before adding background detail.")
     if not feedback: feedback.append("Strong, relevant response with a clear STAR-style structure.")
-    return {
-        "confidence": confidence, "clarity": clarity, "eye_contact": 0,
-        "communication": communication, "relevance": relevance,
-        "star_score": star_score, "star": star, "sentiment": sentiment,
-        "filler_count": fillers, "word_count": n, "feedback": feedback,
-    }
-
+    return {"confidence": confidence, "clarity": clarity, "eye_contact": 0, "communication": communication, "relevance": relevance, "star_score": star_score, "star": star, "sentiment": sentiment, "filler_count": fillers, "word_count": n, "feedback": feedback}
 
 def start(role="Software Engineer", interviewer="AI HR Manager", duration=15):
     return {"id": "int-" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f"), "role": role, "interviewer": interviewer, "duration": duration, "question_index": 0, "events": [], "status": "IN_PROGRESS", "created_at": datetime.now(timezone.utc).isoformat()}
-
 
 def question(state):
     i = state.get("question_index", 0)
     return QUESTIONS[i] if i < len(QUESTIONS) else None
 
-
 def answer(state, transcript):
     q = question(state)
     if not q: return None
-    metrics = score_transcript(transcript, q["prompt"])
-    metrics["transcript"] = transcript
+    metrics = score_transcript(transcript, q["prompt"]); metrics["transcript"] = transcript
+    ai = model_feedback(q["prompt"], transcript)
+    if ai: metrics["ai_feedback"] = ai
     event = {"question": q, "answer": transcript, "metrics": metrics, "timestamp": datetime.now(timezone.utc).isoformat()}
-    state.setdefault("events", []).append(event)
-    state["question_index"] = state.get("question_index", 0) + 1
+    state.setdefault("events", []).append(event); state["question_index"] = state.get("question_index", 0) + 1
     return event
 
-
 def finish(state):
-    events = state.get("events", [])
-    state["status"] = "COMPLETED"
-    if not events:
-        return {"score": 0, "events": [], "status": state["status"]}
+    events = state.get("events", []); state["status"] = "COMPLETED"
+    if not events: return {"score": 0, "events": [], "status": state["status"]}
     avg = lambda key: round(sum(e["metrics"].get(key, 0) for e in events) / len(events), 1)
-    score = round((avg("confidence") + avg("clarity") + avg("communication") + avg("star_score")) / 4, 1)
-    return {"score": score, "confidence": avg("confidence"), "clarity": avg("clarity"), "communication": avg("communication"), "star": avg("star_score"), "sentiment": events[-1]["metrics"]["sentiment"], "events": events, "status": state["status"]}
+    return {"score": round((avg("confidence") + avg("clarity") + avg("communication") + avg("star_score")) / 4, 1), "confidence": avg("confidence"), "clarity": avg("clarity"), "communication": avg("communication"), "star": avg("star_score"), "sentiment": events[-1]["metrics"]["sentiment"], "events": events, "status": state["status"]}
 
-
-def openai_feedback(question_text, transcript):
-    key = os.getenv("OPENAI_API_KEY")
-    if not key or requests is None:
-        return None
-    payload = {"model": os.getenv("INTELLIHIRE_FEEDBACK_MODEL", "gpt-4o-mini"), "messages": [
-        {"role": "system", "content": "You are an HR hiring manager. Evaluate only the candidate response. Give concise feedback on relevance, communication, confidence, STAR structure, strengths, and one improvement."},
-        {"role": "user", "content": f"Interview question: {question_text}\nCandidate transcript: {transcript}"}
-    ], "temperature": 0.2, "max_tokens": 350}
+def _chat(url, key, model, system, user):
+    if not key or requests is None: return None
+    payload = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}], "temperature": 0.2, "max_tokens": 450}
     try:
-        r = requests.post("https://api.openai.com/v1/chat/completions", headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, json=payload, timeout=30)
-        r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"]
+        r = requests.post(url, headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "Accept": "application/json"}, json=payload, timeout=45)
+        r.raise_for_status(); data = r.json()
+        return data.get("choices", [{}])[0].get("message", {}).get("content")
     except Exception:
         return None
+
+def nvidia_feedback(question_text, transcript):
+    return _chat(os.getenv("NVIDIA_INVOKE_URL", "https://integrate.api.nvidia.com/v1/chat/completions"), os.getenv("NVIDIA_API_KEY"), os.getenv("NVIDIA_MODEL", "nemotron-3-nano-omni-30b-a3b-reasoning"), "You are IntelliHire's senior HR interviewer. Evaluate the candidate response for relevance, confidence, communication, STAR structure, evidence, strengths and one actionable improvement. Return concise professional feedback.", f"Interview question: {question_text}\nCandidate response: {transcript}")
+
+def openai_feedback(question_text, transcript):
+    return _chat("https://api.openai.com/v1/chat/completions", os.getenv("OPENAI_API_KEY"), os.getenv("INTELLIHIRE_FEEDBACK_MODEL", "gpt-4o-mini"), "You are an HR hiring manager. Evaluate only the candidate response for relevance, communication, confidence and STAR structure. Give concise feedback with strengths and one improvement.", f"Interview question: {question_text}\nCandidate transcript: {transcript}")
+
+def model_feedback(question_text, transcript):
+    provider = os.getenv("INTELLIHIRE_AI_PROVIDER", "nvidia").lower()
+    if provider == "openai":
+        return openai_feedback(question_text, transcript) or nvidia_feedback(question_text, transcript)
+    return nvidia_feedback(question_text, transcript) or openai_feedback(question_text, transcript)
