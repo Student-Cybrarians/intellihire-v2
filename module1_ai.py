@@ -4,71 +4,80 @@ import json
 import os
 import re
 from typing import Any, Dict, List
-
 import requests
 
-SKILL_ALIASES = {
-    "javascript": ["javascript", "js"], "typescript": ["typescript", "ts"], "node.js": ["node.js", "nodejs", "node"], "react": ["react", "react.js"],
-    "rest api": ["rest api", "restful", "rest services"], "postgresql": ["postgresql", "postgres"], "machine learning": ["machine learning", "ml"], "deep learning": ["deep learning"],
-    "scikit-learn": ["scikit-learn", "sklearn"], "power bi": ["power bi", "powerbi"], "ci/cd": ["ci/cd", "cicd", "continuous integration", "continuous delivery"],
-}
-COMMON_SKILLS = ["python","java","javascript","typescript","react","node.js","sql","postgresql","mongodb","rest api","docker","kubernetes","aws","azure","gcp","fastapi","flask","django","pytorch","tensorflow","nlp","machine learning","deep learning","scikit-learn","pandas","numpy","system design","microservices","git","linux","data analysis","statistics","power bi","tableau","ci/cd","terraform","redis","graphql","spark","airflow","kafka","computer vision"]
+SKILL_ALIASES = {"javascript":["javascript","js"],"typescript":["typescript","ts"],"node.js":["node.js","nodejs","node"],"react":["react","react.js"],"rest api":["rest api","restful","rest services"],"postgresql":["postgresql","postgres"],"machine learning":["machine learning","ml"],"deep learning":["deep learning"],"scikit-learn":["scikit-learn","sklearn"],"power bi":["power bi","powerbi"],"ci/cd":["ci/cd","cicd","continuous integration","continuous delivery"]}
+COMMON_SKILLS=["python","java","javascript","typescript","react","node.js","sql","postgresql","mongodb","rest api","docker","kubernetes","aws","azure","gcp","fastapi","flask","django","pytorch","tensorflow","nlp","machine learning","deep learning","scikit-learn","pandas","numpy","system design","microservices","git","linux","data analysis","statistics","power bi","tableau","ci/cd","terraform","redis","graphql","spark","airflow","kafka","computer vision"]
 
-def _tokens(text: str) -> List[str]:
-    return re.findall(r"[a-z0-9+#./-]+", (text or "").lower())
-
-def extract_skills(text: str) -> List[str]:
-    lower = (text or "").lower(); found = []
+def _tokens(text:str)->List[str]: return re.findall(r"[a-z0-9+#./-]+",(text or "").lower())
+def extract_skills(text:str)->List[str]:
+    lower=(text or "").lower(); found=[]
     for skill in COMMON_SKILLS:
-        aliases = SKILL_ALIASES.get(skill, [skill])
-        if any(re.search(r"(?<![a-z0-9])" + re.escape(a) + r"(?![a-z0-9])", lower) for a in aliases): found.append(skill)
+        aliases=SKILL_ALIASES.get(skill,[skill])
+        if any(re.search(r"(?<![a-z0-9])"+re.escape(a)+r"(?![a-z0-9])",lower) for a in aliases): found.append(skill)
     return found
 
-def _chat(endpoint: str, api_key: str, model: str, system: str, user: str, timeout: int = 45) -> str:
-    r = requests.post(endpoint, headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, json={"model": model,"messages":[{"role":"system","content":system},{"role":"user","content":user}],"temperature":0.15,"max_tokens":5000,"stream":False}, timeout=timeout)
-    r.raise_for_status(); return r.json()["choices"][0]["message"]["content"]
+def _chat(endpoint,api_key,model,system,user,timeout=45):
+    r=requests.post(endpoint,headers={"Authorization":f"Bearer {api_key}","Content-Type":"application/json"},json={"model":model,"messages":[{"role":"system","content":system},{"role":"user","content":user}],"temperature":0.15,"max_tokens":5000,"stream":False},timeout=timeout); r.raise_for_status(); return r.json()["choices"][0]["message"]["content"]
 
-def _extract_json(text: str) -> Dict[str, Any]:
-    cleaned = re.sub(r"^```(?:json)?\s*", "", (text or "").strip(), flags=re.I); cleaned = re.sub(r"\s*```$", "", cleaned)
-    try: return json.loads(cleaned)
+def _extract_json(text):
+    cleaned=re.sub(r"^```(?:json)?\s*","",(text or "").strip(),flags=re.I); cleaned=re.sub(r"\s*```$","",cleaned)
+    try:return json.loads(cleaned)
     except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", cleaned, re.S)
-        if match: return json.loads(match.group(0))
+        match=re.search(r"\{.*\}",cleaned,re.S)
+        if match:return json.loads(match.group(0))
         raise
 
-def _deterministic_metrics(resume: str, jd: str) -> Dict[str, Any]:
+def _deterministic_metrics(resume,jd):
     rs=set(extract_skills(resume)); js=set(extract_skills(jd)); matched=sorted(rs&js); missing=sorted(js-rs); skill_score=round(100*len(matched)/max(1,len(js))); rt,jt=set(_tokens(resume)),set(_tokens(jd)); keyword=round(100*len(rt&jt)/max(1,len(jt)))
     sections={"contact":bool(re.search(r"@|\+?\d[\d ()-]{7,}",resume or "")),"summary":bool(re.search(r"summary|profile|objective",resume or "",re.I)),"experience":bool(re.search(r"experience|employment|worked",resume or "",re.I)),"education":bool(re.search(r"education|degree|university|college|b.tech|bachelor|master",resume or "",re.I)),"skills":bool(re.search(r"skills|technologies|technical skills",resume or "",re.I))}
     ats=round(.55*skill_score+.25*keyword+20*sum(sections.values())/len(sections)); return {"matched_skills":matched,"missing_skills":missing,"skill_match":skill_score,"keyword_match":keyword,"ats_baseline":min(100,ats),"sections":sections}
 
-def analyze_with_ai(resume_text: str, jd_text: str, company: str = "", role: str = "") -> Dict[str, Any]:
+def _sanitize_resume(resume,missing,matched,role):
+    out=dict(resume or {}); out["name"]=out.get("name") or "Candidate"; out["headline"]=out.get("headline") or role or "Target Role"; out["summary"]=out.get("summary") or ""
+    skills=out.get("skills") or []; skills=[str(x) for x in (skills if isinstance(skills,list) else [skills]) if str(x).strip()]; existing={x.lower() for x in skills}
+    for skill in missing:
+        marker=f"[VERIFY] {skill}"
+        if skill.lower() not in existing and marker.lower() not in existing: skills.append(marker)
+    out["skills"]=skills
+    keywords=out.get("keywords") or []; keywords=[str(x) for x in (keywords if isinstance(keywords,list) else [keywords]) if str(x).strip()]; seen={x.lower() for x in keywords}
+    for skill in matched+missing:
+        if skill.lower() not in seen: keywords.append(skill); seen.add(skill.lower())
+    out["keywords"]=keywords
+    for key in ("experience","education","projects","certifications"):
+        value=out.get(key) or []; out[key]=value if isinstance(value,list) else [value]
+    return out
+
+def analyze_with_ai(resume_text,jd_text,company="",role=""):
     metrics=_deterministic_metrics(resume_text,jd_text)
-    system="""You are IntelliHire's senior ATS/recruitment intelligence engine. Analyze a candidate resume strictly against the supplied job description and target role. Never invent candidate experience, education, employment, projects, certificates, metrics, employers, or skills. You may recommend skills/certifications as learning targets, but label them as recommendations. Return ONLY valid JSON with these keys: candidate, job, ats_score, overall_match, keyword_match, semantic_match, skills_match, matched_skills, missing_skills, strengths, risks, recommendations, recruiter_feedback, learning_plan, recommended_certifications, tailored_resume. tailored_resume must contain name, headline, summary, skills, experience, education, projects, certifications, keywords. Preserve factual candidate content and mark any suggested additions as [VERIFY]."""
-    prompt=f"""TARGET COMPANY: {company}\nTARGET ROLE: {role}\n\nJOB DESCRIPTION:\n{jd_text[:18000]}\n\nCANDIDATE RESUME:\n{resume_text[:22000]}\n\nDeterministic baseline metrics for cross-checking: {json.dumps(metrics)}\nProvide a rigorous, evidence-based ATS analysis and a tailored ATS-friendly resume. Match the JD's responsibilities and skills. Explain gaps and give an actionable preparation plan. Do not claim a certification is required unless the JD explicitly requires it."""
+    system="""You are IntelliHire's senior ATS/recruitment intelligence engine. Analyze a candidate resume strictly against the supplied job description and target role. Never invent candidate experience, education, employment, projects, certifications, employers, metrics, or skills. You may recommend skills/certifications as learning targets, but label them as recommendations. Return ONLY valid JSON with these keys: candidate, job, ats_score, overall_match, keyword_match, semantic_match, skills_match, matched_skills, missing_skills, strengths, risks, recommendations, recruiter_feedback, learning_plan, recommended_certifications, tailored_resume. tailored_resume must contain name, headline, summary, skills, experience, education, projects, certifications, keywords. Preserve factual candidate content. Never put an unverified JD skill into candidate-claimed experience. If you include a target skill in the resume skills section, prefix it with [VERIFY]."""
+    prompt=f"""TARGET COMPANY: {company}\nTARGET ROLE: {role}\n\nJOB DESCRIPTION:\n{jd_text[:18000]}\n\nCANDIDATE RESUME:\n{resume_text[:22000]}\n\nDeterministic baseline metrics: {json.dumps(metrics)}\nProvide rigorous evidence-based ATS analysis and a clean ATS-friendly resume. Optimize for the JD's responsibilities and keywords while preserving candidate truth. Separate demonstrated skills from target/missing skills. Recommend certifications only when relevant; label all recommendations as recommendations."""
     providers=[]
     if os.getenv("OPENAI_API_KEY"): providers.append((os.getenv("OPENAI_BASE_URL","https://api.openai.com/v1/chat/completions"),os.getenv("OPENAI_MODEL","gpt-5-mini"),os.getenv("OPENAI_API_KEY"),"openai"))
-    if os.getenv("NVIDIA_API_KEY"): providers.append((os.getenv("NVIDIA_API_URL","https://integrate.api.nvidia.com/v1/chat/completions"),os.getenv("NVIDIA_MODEL","nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"),os.getenv("NVIDIA_API_KEY"),"nvidia"))
+    if os.getenv("NVIDIA_API_KEY"): providers.append((os.getenv("NVIDIA_API_URL","https://integrate.api.nvidia.com/v1/chat/completions"),os.getenv("NVIDIA_MODEL","nvidia/nemotron-3-nano-30b-a3b-reasoning"),os.getenv("NVIDIA_API_KEY"),"nvidia"))
     last_error=None
     for endpoint,model,key,provider in providers:
         try:
             data=_extract_json(_chat(endpoint,key,model,system,prompt)); data.update({"provider":provider,"model":model,"is_ai":True,"baseline":metrics}); return _normalize(data,metrics,company,role)
-        except Exception as exc: last_error=str(exc)
+        except Exception as exc:last_error=str(exc)
     return _fallback(metrics,company,role,last_error)
 
 def _normalize(data,metrics,company,role):
     for key,default in [("ats_score",metrics["ats_baseline"]),("overall_match",metrics["ats_baseline"]),("keyword_match",metrics["keyword_match"]),("semantic_match",metrics["keyword_match"]),("skills_match",metrics["skill_match"])]: data[key]=max(0,min(100,int(float(data.get(key,default)))))
-    for key,default in [("matched_skills",metrics["matched_skills"]),("missing_skills",metrics["missing_skills"]),("recommended_certifications",[]),("learning_plan",[]),("recommendations",[])]: data[key]=data.get(key) or default
-    data["company"]=company; data["role"]=role; data["shortlist"]="SHORTLISTED" if data["ats_score"]>=80 else ("CONSIDER" if data["ats_score"]>=60 else "NEEDS_IMPROVEMENT"); data["feedback"]=data.get("recruiter_feedback",""); return data
+    for key,default in [("matched_skills",metrics["matched_skills"]),("missing_skills",metrics["missing_skills"]),("recommended_certifications",[]),("learning_plan",[]),("recommendations",[])]:data[key]=data.get(key) or default
+    data["matched_skills"]=sorted(set(map(str,data["matched_skills"]))); data["missing_skills"]=sorted(set(map(str,data["missing_skills"])))
+    data["company"]=company; data["role"]=role; data["tailored_resume"]=_sanitize_resume(data.get("tailored_resume") or {},data["missing_skills"],data["matched_skills"],role); data["shortlist"]="SHORTLISTED" if data["ats_score"]>=80 else ("CONSIDER" if data["ats_score"]>=60 else "NEEDS_IMPROVEMENT"); data["feedback"]=data.get("recruiter_feedback",""); return data
 
 def _fallback(metrics,company,role,error=None):
-    return {"provider":"deterministic-fallback","model":None,"is_ai":False,"ai_error":error,"ats_score":metrics["ats_baseline"],"overall_match":round((metrics["skill_match"]+metrics["keyword_match"]+metrics["ats_baseline"])/3),"keyword_match":metrics["keyword_match"],"semantic_match":metrics["keyword_match"],"skills_match":metrics["skill_match"],"matched_skills":metrics["matched_skills"],"missing_skills":metrics["missing_skills"],"strengths":metrics["matched_skills"],"risks":metrics["missing_skills"],"recommendations":[f"Build evidence for: {x}" for x in metrics["missing_skills"]],"recruiter_feedback":"AI provider unavailable; deterministic ATS analysis was used.","feedback":"AI provider unavailable; deterministic ATS analysis was used.","learning_plan":[f"Learn and demonstrate {x}" for x in metrics["missing_skills"]],"recommended_certifications":[],"tailored_resume":{"name":"Candidate","headline":role or "Target Role","summary":"Tailor this summary after reviewing the evidence gaps.","skills":metrics["matched_skills"],"experience":[],"education":[],"projects":[],"certifications":[],"keywords":metrics["matched_skills"]},"company":company,"role":role,"shortlist":"SHORTLISTED" if metrics["ats_baseline"]>=80 else "CONSIDER"}
+    resume=_sanitize_resume({"name":"Candidate","headline":role or "Target Role","summary":"","skills":metrics["matched_skills"],"experience":[],"education":[],"projects":[],"certifications":[]},metrics["missing_skills"],metrics["matched_skills"],role)
+    return {"provider":"deterministic-fallback","model":None,"is_ai":False,"ai_error":error,"ats_score":metrics["ats_baseline"],"overall_match":round((metrics["skill_match"]+metrics["keyword_match"]+metrics["ats_baseline"])/3),"keyword_match":metrics["keyword_match"],"semantic_match":metrics["keyword_match"],"skills_match":metrics["skill_match"],"matched_skills":metrics["matched_skills"],"missing_skills":metrics["missing_skills"],"strengths":metrics["matched_skills"],"risks":metrics["missing_skills"],"recommendations":[f"Build evidence for: {x}" for x in metrics["missing_skills"]],"recruiter_feedback":"AI provider unavailable; deterministic ATS analysis was used.","feedback":"AI provider unavailable; deterministic ATS analysis was used.","learning_plan":[f"Learn and demonstrate {x}" for x in metrics["missing_skills"]],"recommended_certifications":[],"tailored_resume":resume,"company":company,"role":role,"shortlist":"SHORTLISTED" if metrics["ats_baseline"]>=80 else "CONSIDER"}
 
 def resume_docx_bytes(resume):
     from docx import Document
     d=Document(); d.add_heading(resume.get("name","Candidate"),0); d.add_paragraph(resume.get("headline","")); d.add_heading("Professional Summary",level=1); d.add_paragraph(resume.get("summary",""))
     for title,key in [("Skills","skills"),("Experience","experience"),("Education","education"),("Projects","projects"),("Certifications","certifications")]:
         d.add_heading(title,level=1); values=resume.get(key,[]); values=[values] if isinstance(values,str) else values
-        for value in values: d.add_paragraph(str(value),style="List Bullet")
+        for value in values:d.add_paragraph(str(value),style="List Bullet")
     out=io.BytesIO(); d.save(out); return out.getvalue()
 
 def resume_pdf_bytes(resume):
@@ -79,12 +88,12 @@ def resume_pdf_bytes(resume):
     for title,key in [("Professional Summary","summary"),("Skills","skills"),("Experience","experience"),("Education","education"),("Projects","projects"),("Certifications","certifications")]:
         story += [Spacer(1,8),Paragraph(title,styles["Heading2"])]
         values=resume.get(key,[]); values=[values] if isinstance(values,str) else values
-        for value in values: story.append(Paragraph(str(value).replace("&","&amp;"),styles["BodyText"]))
+        for value in values:story.append(Paragraph(str(value).replace("&","&amp;"),styles["BodyText"]))
     doc.build(story); return out.getvalue()
 
 def resume_csv_bytes(resume):
     out=io.StringIO(); w=csv.writer(out); w.writerow(["section","content"])
     for key,value in resume.items():
         values=value if isinstance(value,list) else [value]
-        for item in values: w.writerow([key,item])
+        for item in values:w.writerow([key,item])
     return out.getvalue().encode("utf-8-sig")
