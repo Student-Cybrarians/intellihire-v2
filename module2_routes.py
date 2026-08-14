@@ -91,7 +91,11 @@ def answer_persisted(assessment_id):
                 record_performance(user['id'], 'module2', result.get('score', 0), result)
             except Exception:
                 pass
-        return jsonify({'event': event, 'assessment': saved, 'result': result})
+        public_event = dict(event)
+        public_question = dict(event.get('question', {}))
+        public_question['answer'] = None
+        public_event['question'] = public_question
+        return jsonify({'event': public_event, 'assessment': saved, 'result': result})
     except LookupError:
         return jsonify({'error': 'assessment_not_found'}), 404
     except ValueError as exc:
