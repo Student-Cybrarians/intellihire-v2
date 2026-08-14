@@ -1,4 +1,5 @@
 from module1_ai import _deterministic_metrics, _extract_json, analyze_with_ai, resume_csv_bytes, resume_docx_bytes, resume_pdf_bytes
+import module1_ai
 
 
 def test_json_parser_handles_fenced_json():
@@ -48,6 +49,48 @@ def test_required_output_contract(monkeypatch):
     assert '[verify] aws' in skills
 
 
-def test_missing_jd_skills_are_never_silently_claimed():
-    monkeypatch=None
-    result=analyze_with_ai.__wrapped__ if False else None
+def test_openai_real_provider_contract(monkeypatch):
+    monkeypatch.setenv('OPENAI_API_KEY','test-openai-key')
+    monkeypatch.delenv('NVIDIA_API_KEY', raising=False)
+
+    class Response:
+        def raise_for_status(self):
+            return None
+        def json(self):
+            return {'choices':[{'message':{'content':'{"ats_score":88,"overall_match":86,"keyword_match":90,"semantic_match":82,"skills_match":85,"matched_skills":["python"],"missing_skills":["docker"],"strengths":["python"],"risks":["docker"],"recommendations":["Learn Docker"],"recruiter_feedback":"Good fit with one gap.","learning_plan":["Build a Docker project"],"recommended_certifications":[],"tailored_resume":{"name":"Candidate","headline":"Engineer","summary":"Python engineer","skills":["Python"],"experience":[],"education":[],"projects":[],"certifications":[],"keywords":["python","docker"]}}}]}
+
+    calls=[]
+    def fake_post(endpoint, **kwargs):
+        calls.append((endpoint,kwargs))
+        return Response()
+
+    monkeypatch.setattr(module1_ai.requests, 'post', fake_post)
+    result=analyze_with_ai('Python developer','Python and Docker required','Acme','Engineer')
+    assert result['is_ai'] is True
+    assert result['provider'] == 'openai'
+    assert result['ats_score'] == 88
+    assert calls[0][0].startswith('https://api.openai.com/v1/chat/completions')
+    assert calls[0][1]['json']['messages'][0]['role'] == 'system'
+
+
+def test_nvidia_fallback_after_openai_failure(monkeypatch):
+    monkeypatch.setenv('OPENAI_API_KEY','bad-openai-key')
+    monkeypatch.setenv('NVIDIA_API_KEY','test-nvidia-key')
+
+    class Response:
+        def __init__(self, fail=False): self.fail=fail
+        def raise_for_status(self):
+            if self.fail: raise RuntimeError('provider failure')
+        def json(self):
+            return {'choices':[{'message':{'content':'{"ats_score":81,"overall_match":80,"keyword_match":82,"semantic_match":78,"skills_match":80,"matched_skills":["python"],"missing_skills":[],"strengths":["python"],"risks":[],"recommendations":[],"recruiter_feedback":"Good fit.","learning_plan":[],"recommended_certifications":[],"tailored_resume":{"name":"Candidate","headline":"Engineer","summary":"Python engineer","skills":["Python"],"experience":[],"education":[],"projects":[],"certifications":[],"keywords":["python"]}}}]}
+
+    endpoints=[]
+    def fake_post(endpoint, **kwargs):
+        endpoints.append(endpoint)
+        return Response(fail=endpoint.startswith('https://api.openai.com'))
+
+    monkeypatch.setattr(module1_ai.requests, 'post', fake_post)
+    result=analyze_with_ai('Python developer','Python required','Acme','Engineer')
+    assert result['is_ai'] is True
+    assert result['provider'] == 'nvidia'
+    assert endpoints == ['https://api.openai.com/v1/chat/completions','https://integrate.api.nvidia.com/v1/chat/completions']
