@@ -88,6 +88,7 @@ def test_openai_real_provider_contract(monkeypatch):
     assert result['ats_score'] == 88
     assert calls[0][0] == 'https://api.openai.com/v1/chat/completions'
     assert calls[0][1]['json']['messages'][0]['role'] == 'system'
+    assert calls[0][1]['timeout'] <= 10
 
 
 def test_nvidia_fallback_after_openai_failure(monkeypatch):
@@ -110,3 +111,20 @@ def test_nvidia_fallback_after_openai_failure(monkeypatch):
     assert result['is_ai'] is True
     assert result['provider'] == 'nvidia'
     assert endpoints == ['https://api.openai.com/v1/chat/completions','https://integrate.api.nvidia.com/v1/chat/completions']
+
+
+def test_provider_timeout_returns_without_hanging(monkeypatch):
+    monkeypatch.setenv('OPENAI_API_KEY','slow-openai-key')
+    monkeypatch.delenv('NVIDIA_API_KEY', raising=False)
+    monkeypatch.setenv('MODULE1_AI_PROVIDER_TIMEOUT_SECONDS','2')
+    monkeypatch.setenv('MODULE1_AI_TOTAL_TIMEOUT_SECONDS','2')
+
+    def fake_post(endpoint, **kwargs):
+        assert kwargs['timeout'] <= 2
+        raise module1_ai.requests.Timeout('simulated provider timeout')
+
+    monkeypatch.setattr(module1_ai.requests, 'post', fake_post)
+    result=analyze_with_ai('Python developer','Python required','Acme','Engineer')
+    assert result['is_ai'] is False
+    assert result['provider'] == 'deterministic-fallback'
+    assert 'timeout' in (result['ai_error'] or '').lower()
