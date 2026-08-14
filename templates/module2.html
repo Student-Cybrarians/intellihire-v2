@@ -2,9 +2,63 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>IntelliHire Module 2</title><link rel="stylesheet" href="/static/module2.css"></head>
 <body>
-<header><a href="/app/dashboard">✦ INTELLIHIRE</a><span>Adaptive Technical Assessment</span><a href="/app/module1/overview">Module 1</a></header>
+<header><a href="/app/dashboard">✦ INTELLIHIRE</a><span>Adaptive Technical Assessment · Persistent</span><a href="/app/module1/overview">Module 1</a></header>
 <main>
-<section class="panel"><p class="eyebrow">MODULE 2</p><h1>Adaptive Technical Assessment</h1><p>Adaptive assessment powered by the Python mock-IRT engine.</p><div class="grid"><div>Role<br><strong>Software Engineer</strong></div><div>Sections<br><strong>Python · Algorithms · SQL · ML</strong></div><div>Difficulty<br><strong>Adaptive</strong></div></div><p>The assessment selects the next question using item information around the current ability estimate θ.</p><a class="button" href="/app/module2/assessment">Start Assessment</a></section>
-<section class="panel"><h2>Assessment flow</h2><div class="flow"><span>Question</span><b>→</b><span>Answer</span><b>→</b><span>IRT update</span><b>→</b><span>Ability θ</span><b>→</b><span>Next question</span></div></section>
+<section class="panel" id="intro">
+  <p class="eyebrow">MODULE 2</p><h1>Adaptive Technical Assessment</h1>
+  <p>Production adaptive assessment with persistent progress, authenticated recovery, IRT ability updates, and performance history.</p>
+  <div class="grid"><div>Role<br><strong>Software Engineer</strong></div><div>Sections<br><strong>Python · Algorithms · SQL · ML</strong></div><div>Difficulty<br><strong>Adaptive</strong></div></div>
+  <p id="resume" class="muted">Checking for an existing assessment…</p>
+  <button class="button" id="start">Start New Assessment</button>
+  <button class="button" id="resumeBtn" hidden>Resume Assessment</button>
+</section>
+<section class="panel" id="assessment" hidden>
+  <div class="grid"><div>Question <strong id="progress">0 / 8</strong></div><div>Ability θ <strong id="ability">0.00</strong></div><div>Status <strong id="status">ACTIVE</strong></div></div>
+  <h2 id="topic"></h2><p id="prompt"></p><div id="options"></div>
+  <p id="feedback" class="muted"></p>
+  <button class="button" id="next" hidden>Next Question</button>
+  <button class="button" id="abandon">Save & Exit</button>
+</section>
+<section class="panel" id="results" hidden>
+  <p class="eyebrow">RESULT</p><h1>Assessment Complete</h1>
+  <div class="grid"><div>Score<br><strong id="score"></strong></div><div>Accuracy<br><strong id="accuracy"></strong></div><div>Ability θ<br><strong id="finalAbility"></strong></div></div>
+  <pre id="sectionScores"></pre>
+</section>
 </main>
+<script>
+let assessment=null, question=null;
+const $=id=>document.getElementById(id);
+async function api(url,opts={}){const r=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'request_failed');return data;}
+function renderQuestion(){
+  if(!question){complete();return;}
+  $('progress').textContent=`${assessment.events.length} / ${assessment.target_questions}`;
+  $('ability').textContent=Number(assessment.ability).toFixed(2); $('topic').textContent=question.topic; $('prompt').textContent=question.prompt; $('feedback').textContent=''; $('next').hidden=true;
+  const box=$('options'); box.innerHTML='';
+  question.options.forEach((option,i)=>{const b=document.createElement('button');b.className='button';b.type='button';b.textContent=option;b.onclick=()=>answer(i);box.appendChild(b);});
+}
+async function loadNext(){
+  const data=await api('/api/module2/next',{method:'POST',body:JSON.stringify({ability:assessment.ability,answered:assessment.answered_ids,section:assessment.section||null})});
+  question=data.question; renderQuestion();
+}
+async function answer(index){
+  document.querySelectorAll('#options button').forEach(b=>b.disabled=true);
+  try{
+    const data=await api(`/api/module2/assessments/${assessment.id}/answer`,{method:'POST',body:JSON.stringify({question_id:question.id,answer:index})});
+    assessment=data.assessment; $('feedback').textContent=data.event.correct?'Correct — ability updated.':'Not quite — ability updated using the response probability.';
+    if(assessment.status==='COMPLETED'){complete(data.result);return;}
+    $('next').hidden=false;
+  }catch(e){$('feedback').textContent=e.message;document.querySelectorAll('#options button').forEach(b=>b.disabled=false);}
+}
+async function complete(result){
+  $('assessment').hidden=true;$('results').hidden=false;
+  result=result||await api('/api/module2/score',{method:'POST',body:JSON.stringify({events:assessment.events})});
+  $('score').textContent=`${result.score}%`; $('accuracy').textContent=`${result.accuracy}%`; $('finalAbility').textContent=Number(result.ability).toFixed(2); $('sectionScores').textContent=JSON.stringify(result.section_scores,null,2);
+}
+async function start(){
+  const data=await api('/api/module2/assessments',{method:'POST',body:JSON.stringify({target_questions:8})}); assessment=data; $('intro').hidden=true;$('assessment').hidden=false; await loadNext();
+}
+async function resume(){const data=await api('/api/module2/assessments/latest');if(!data.assessment)return start();assessment=data.assessment;$('intro').hidden=true;$('assessment').hidden=false;if(assessment.status==='COMPLETED'){complete();return;}await loadNext();}
+$('start').onclick=()=>start().catch(e=>{$('resume').textContent=e.message;});$('resumeBtn').onclick=()=>resume().catch(e=>{$('resume').textContent=e.message;});$('next').onclick=()=>loadNext().catch(e=>{$('feedback').textContent=e.message;});$('abandon').onclick=async()=>{if(assessment)await api(`/api/module2/assessments/${assessment.id}/abandon`,{method:'POST'});location.href='/app/dashboard';};
+(async()=>{try{const data=await api('/api/module2/assessments/latest');if(data.assessment&&data.assessment.status==='ACTIVE'){$('resume').textContent='An unfinished assessment was found and can be resumed safely.';$('resumeBtn').hidden=false;}else $('resume').textContent='No unfinished assessment found.';}catch(e){$('resume').textContent='Persistent assessment storage is temporarily unavailable.';}})();
+</script>
 </body></html>
