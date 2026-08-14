@@ -4,6 +4,8 @@ from auth_routes import require_auth
 from auth_db import get_user_performance, record_performance
 from career_intelligence import build_career_twin, build_roadmap
 from career_twin_store import save as save_career_twin, latest as latest_career_twin
+from research_engine import build_research_brief
+from research_store import save as save_research_brief, latest as latest_research_briefs
 
 module5 = Blueprint('module5', __name__, url_prefix='/api/module5')
 
@@ -63,3 +65,34 @@ def get_career_twin():
     if not twin:
         return jsonify({'error':'career_twin_not_found'}),404
     return jsonify(twin)
+
+@module5.post('/research')
+def research():
+    user, response = require_auth('USER')
+    if response:
+        return response
+    data=request.get_json(silent=True) or {}
+    question=str(data.get('question','')).strip()
+    sources=data.get('sources',[])
+    if not question:
+        return jsonify({'error':'research_question_required'}),400
+    try:
+        twin=latest_career_twin(user['id']) or {}
+        brief=build_research_brief(twin,question,sources,data.get('max_sources',6))
+        persistence=save_research_brief(user['id'],question,brief)
+        brief['persistence']=persistence
+        return jsonify(brief)
+    except ValueError as exc:
+        return jsonify({'error':str(exc)}),400
+    except Exception:
+        return jsonify({'error':'research_persistence_unavailable'}),503
+
+@module5.get('/research')
+def research_history():
+    user, response = require_auth('USER')
+    if response:
+        return response
+    try:
+        return jsonify({'items':latest_research_briefs(user['id'],request.args.get('limit',10))})
+    except Exception:
+        return jsonify({'error':'research_persistence_unavailable'}),503
