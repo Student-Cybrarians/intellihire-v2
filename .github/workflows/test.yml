@@ -15,4 +15,4 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt pytest
       - run: python -m py_compile module1_ai.py auth_routes.py app.py
-      - run: pytest -q tests/test_module1_ai.py tests/test_module4_liftoff.py
+      - run: PYTHONPATH=. pytest -q tests/test_module1_ai.py tests/test_module4_liftoff.py
