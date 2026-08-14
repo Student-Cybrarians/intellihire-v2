@@ -1,6 +1,7 @@
 import json
 
 import module1_ai
+from ml_engine import analyze_resume, bm25_score, career_gap_analysis, build_career_context, match_resume_to_job, normalize_skill, research_plan
 from module1_ai import _deterministic_metrics, _extract_json, analyze_with_ai, resume_csv_bytes, resume_docx_bytes, resume_pdf_bytes
 
 
@@ -128,3 +129,39 @@ def test_provider_timeout_returns_without_hanging(monkeypatch):
     assert result['is_ai'] is False
     assert result['provider'] == 'deterministic-fallback'
     assert 'timeout' in (result['ai_error'] or '').lower()
+
+
+def test_skill_alias_normalization():
+    assert normalize_skill('JS') == 'javascript'
+    assert normalize_skill('ReactJS') == 'react'
+    assert normalize_skill('Postgres') == 'postgresql'
+
+
+def test_resume_ml_analysis_is_evidence_based():
+    result = analyze_resume('Python developer with React and Docker. B.Tech Computer Science. experience @example.com')
+    assert 'python' in result['skills']
+    assert result['sections']['education'] is True
+    assert result['score'] <= 100
+
+
+def test_resume_job_matching_has_real_ml_method_label():
+    result = match_resume_to_job('Python React Docker developer', 'Python React Docker AWS required')
+    assert result['isSimulated'] is False
+    assert result['method'] == 'skill+TFIDF+BM25'
+    assert 'aws' in result['missingSkills']
+    assert 0 <= result['atsScore'] <= 100
+
+
+def test_bm25_is_non_negative():
+    assert bm25_score('python docker', 'python python docker aws') >= 0
+
+
+def test_career_context_and_gap_engine():
+    profile = {'name': 'Candidate', 'target_role': 'Backend Engineer', 'skills': ['Python', 'SQL']}
+    context = build_career_context(profile, [{'module': 'module2', 'score': 72}], 'Backend Engineer')
+    gap = career_gap_analysis(profile, 'Backend Engineer')
+    plan = research_plan(profile, 'Backend Engineer')
+    assert context['goal'] == 'Backend Engineer'
+    assert 'docker' in gap['missingSkills']
+    assert plan['actions']
+    assert plan['sources'] == []
