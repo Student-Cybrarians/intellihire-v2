@@ -4,9 +4,10 @@ from auth_routes import require_auth
 from auth_db import get_user_performance, record_performance
 from career_intelligence import build_career_twin, build_roadmap
 from career_twin_store import save as save_career_twin, latest as latest_career_twin
-from research_engine import build_research_brief
 from research_retrieval import run_research
 from research_store import save as save_research_brief, latest as latest_research_briefs
+from roadmap_engine import generate_roadmap
+from roadmap_store import save as save_roadmap, latest as latest_roadmap
 
 module5 = Blueprint('module5', __name__, url_prefix='/api/module5')
 
@@ -71,3 +72,31 @@ def research_history():
     if response: return response
     try: return jsonify({'items':latest_research_briefs(user['id'],request.args.get('limit',10))})
     except Exception: return jsonify({'error':'research_persistence_unavailable'}),503
+
+@module5.post('/roadmap')
+def roadmap():
+    user, response = require_auth('USER')
+    if response: return response
+    data=request.get_json(silent=True) or {}
+    try:
+        twin=latest_career_twin(user['id'])
+        if not twin: return jsonify({'error':'career_twin_not_found'}),404
+        research=data.get('research')
+        if research is None:
+            history=latest_research_briefs(user['id'],1)
+            research=history[0] if history else {}
+        plan=generate_roadmap(twin,research,data.get('weeks',8))
+        plan['persistence']=save_roadmap(user['id'],plan)
+        return jsonify(plan)
+    except ValueError as exc: return jsonify({'error':str(exc)}),400
+    except Exception: return jsonify({'error':'roadmap_service_unavailable'}),503
+
+@module5.get('/roadmap')
+def get_roadmap():
+    user, response = require_auth('USER')
+    if response: return response
+    try:
+        plan=latest_roadmap(user['id'])
+        if not plan: return jsonify({'error':'roadmap_not_found'}),404
+        return jsonify(plan)
+    except Exception: return jsonify({'error':'roadmap_persistence_unavailable'}),503
