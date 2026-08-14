@@ -3,6 +3,7 @@ from io import BytesIO
 from flask import Blueprint, abort, redirect, request, jsonify, make_response, send_file
 from auth_db import get_or_create_google_user, create_session, get_session, revoke_session, audit, record_performance
 from module1_ai import analyze_with_ai, resume_docx_bytes, resume_pdf_bytes, resume_csv_bytes
+from ml_engine import build_career_context, career_gap_analysis, research_plan
 
 try:
     import requests
@@ -46,16 +47,7 @@ def google_login():
         return redirect('/?auth_error=google_not_configured')
     state = secrets.token_urlsafe(32)
     nonce = secrets.token_urlsafe(32)
-    params = {
-        'client_id': os.getenv('GOOGLE_CLIENT_ID'),
-        'redirect_uri': os.getenv('GOOGLE_REDIRECT_URI'),
-        'response_type': 'code',
-        'scope': 'openid email profile',
-        'access_type': 'online',
-        'state': state,
-        'nonce': nonce,
-        'prompt': 'select_account',
-    }
+    params = {'client_id': os.getenv('GOOGLE_CLIENT_ID'), 'redirect_uri': os.getenv('GOOGLE_REDIRECT_URI'), 'response_type': 'code', 'scope': 'openid email profile', 'access_type': 'online', 'state': state, 'nonce': nonce, 'prompt': 'select_account'}
     response = make_response(redirect(GOOGLE_AUTHORIZE + '?' + urllib.parse.urlencode(params)))
     response.set_cookie(OAUTH_STATE_COOKIE, state, max_age=600, httponly=True, secure=True, samesite='Lax', path='/')
     response.set_cookie(OAUTH_NONCE_COOKIE, nonce, max_age=600, httponly=True, secure=True, samesite='Lax', path='/')
@@ -169,6 +161,22 @@ def module1_analyze_file():
     try: record_performance(user['id'], 'module1', result.get('ats_score', 0), result)
     except Exception: pass
     return jsonify(result)
+
+
+@auth.post('/career/intelligence')
+def career_intelligence():
+    user, response = require_auth('USER')
+    if response: return response
+    data = request.get_json(silent=True) or {}
+    profile = data.get('profile') or {}
+    target_role = str(data.get('target_role') or profile.get('target_role') or '').strip()
+    if not target_role:
+        return jsonify({'error': 'target_role_required'}), 400
+    performance = data.get('performance') or []
+    context = build_career_context(profile, performance, target_role)
+    gap = career_gap_analysis(profile, target_role)
+    plan = research_plan(profile, target_role)
+    return jsonify({'mode': 'career-preparation', 'context': context, 'gap': gap, 'research_plan': plan, 'human_review_required_for_employment_decisions': True})
 
 
 @auth.post('/module1/export/<fmt>')
