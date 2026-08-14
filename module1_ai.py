@@ -3,6 +3,7 @@ import io
 import json
 import os
 import re
+import time
 from typing import Any, Dict, List
 import requests
 
@@ -17,8 +18,19 @@ def extract_skills(text:str)->List[str]:
         if any(re.search(r"(?<![a-z0-9])"+re.escape(a)+r"(?![a-z0-9])",lower) for a in aliases): found.append(skill)
     return found
 
-def _chat(endpoint,api_key,model,system,user,timeout=45):
-    r=requests.post(endpoint,headers={"Authorization":f"Bearer {api_key}","Content-Type":"application/json"},json={"model":model,"messages":[{"role":"system","content":system},{"role":"user","content":user}],"temperature":0.15,"max_tokens":5000,"stream":False},timeout=timeout); r.raise_for_status(); return r.json()["choices"][0]["message"]["content"]
+def _chat(endpoint,api_key,model,system,user,timeout=None):
+    """Call a chat-completions provider with a hard network timeout.
+
+    Timeout is deliberately bounded because Module 1 is a synchronous request in
+    the web app. A provider that stalls must yield quickly to the next provider
+    or the deterministic fallback instead of consuming the whole server budget.
+    """
+    timeout = float(timeout if timeout is not None else os.getenv("MODULE1_AI_PROVIDER_TIMEOUT_SECONDS", "10"))
+    payload={"model":model,"messages":[{"role":"system","content":system},{"role":"user","content":user}],"temperature":0.15,"max_tokens":2600,"stream":False}
+    r=requests.post(endpoint,headers={"Authorization":f"Bearer {api_key}","Content-Type":"application/json"},json=payload,timeout=max(1.0,timeout))
+    r.raise_for_status()
+    body=r.json()
+    return body["choices"][0]["message"]["content"]
 
 def _extract_json(text):
     cleaned=re.sub(r"^```(?:json)?\s*","",(text or "").strip(),flags=re.I); cleaned=re.sub(r"\s*```$","",cleaned)
@@ -51,15 +63,27 @@ def _sanitize_resume(resume,missing,matched,role):
 def analyze_with_ai(resume_text,jd_text,company="",role=""):
     metrics=_deterministic_metrics(resume_text,jd_text)
     system="""You are IntelliHire's senior ATS/recruitment intelligence engine. Analyze a candidate resume strictly against the supplied job description and target role. Never invent candidate experience, education, employment, projects, certifications, employers, metrics, or skills. You may recommend skills/certifications as learning targets, but label them as recommendations. Return ONLY valid JSON with these keys: candidate, job, ats_score, overall_match, keyword_match, semantic_match, skills_match, matched_skills, missing_skills, strengths, risks, recommendations, recruiter_feedback, learning_plan, recommended_certifications, tailored_resume. tailored_resume must contain name, headline, summary, skills, experience, education, projects, certifications, keywords. Preserve factual candidate content. Never put an unverified JD skill into candidate-claimed experience. If you include a target skill in the resume skills section, prefix it with [VERIFY]."""
-    prompt=f"""TARGET COMPANY: {company}\nTARGET ROLE: {role}\n\nJOB DESCRIPTION:\n{jd_text[:18000]}\n\nCANDIDATE RESUME:\n{resume_text[:22000]}\n\nDeterministic baseline metrics: {json.dumps(metrics)}\nProvide rigorous evidence-based ATS analysis and a clean ATS-friendly resume. Optimize for the JD's responsibilities and keywords while preserving candidate truth. Separate demonstrated skills from target/missing skills. Recommend certifications only when relevant; label all recommendations as recommendations."""
+    prompt=f"""TARGET COMPANY: {company}\nTARGET ROLE: {role}\n\nJOB DESCRIPTION:\n{jd_text[:14000]}\n\nCANDIDATE RESUME:\n{resume_text[:18000]}\n\nDeterministic baseline metrics: {json.dumps(metrics)}\nProvide rigorous evidence-based ATS analysis and a clean ATS-friendly resume. Optimize for the JD's responsibilities and keywords while preserving candidate truth. Separate demonstrated skills from target/missing skills. Recommend certifications only when relevant; label all recommendations as recommendations."""
     providers=[]
     if os.getenv("OPENAI_API_KEY"): providers.append((os.getenv("OPENAI_BASE_URL","https://api.openai.com/v1/chat/completions"),os.getenv("OPENAI_MODEL","gpt-5-mini"),os.getenv("OPENAI_API_KEY"),"openai"))
     if os.getenv("NVIDIA_API_KEY"): providers.append((os.getenv("NVIDIA_API_URL","https://integrate.api.nvidia.com/v1/chat/completions"),os.getenv("NVIDIA_MODEL","nvidia/nemotron-3-nano-30b-a3b-reasoning"),os.getenv("NVIDIA_API_KEY"),"nvidia"))
     last_error=None
+    total_budget=float(os.getenv("MODULE1_AI_TOTAL_TIMEOUT_SECONDS","22"))
+    started=time.monotonic()
     for endpoint,model,key,provider in providers:
+        remaining=total_budget-(time.monotonic()-started)
+        if remaining <= 0:
+            last_error="Module 1 AI total timeout budget exhausted"
+            break
+        provider_timeout=min(float(os.getenv("MODULE1_AI_PROVIDER_TIMEOUT_SECONDS","10")),remaining)
         try:
-            data=_extract_json(_chat(endpoint,key,model,system,prompt)); data.update({"provider":provider,"model":model,"is_ai":True,"baseline":metrics}); return _normalize(data,metrics,company,role)
-        except Exception as exc:last_error=str(exc)
+            data=_extract_json(_chat(endpoint,key,model,system,prompt,timeout=provider_timeout)); data.update({"provider":provider,"model":model,"is_ai":True,"baseline":metrics}); return _normalize(data,metrics,company,role)
+        except (requests.Timeout,requests.ConnectionError) as exc:
+            last_error=f"{provider} unavailable: {type(exc).__name__}: {exc}"
+        except (requests.RequestException,KeyError,ValueError,TypeError, json.JSONDecodeError) as exc:
+            last_error=f"{provider} response error: {type(exc).__name__}: {exc}"
+        except Exception as exc:
+            last_error=f"{provider} unexpected error: {type(exc).__name__}: {exc}"
     return _fallback(metrics,company,role,last_error)
 
 def _normalize(data,metrics,company,role):
