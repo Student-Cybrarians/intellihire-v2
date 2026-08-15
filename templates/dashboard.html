@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard · IntelliHire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/intellihire-inner.css">
+<style>
+.ih-dashboard{min-height:100vh}.ih-dashboard .hero{padding:42px 0 24px}.ih-dashboard .hero-row{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}.ih-dashboard .welcome{font-size:clamp(32px,5vw,56px);margin:8px 0}.ih-dashboard .sub{max-width:720px}.ih-actions{display:flex;gap:10px;flex-wrap:wrap}.ih-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:26px 0}.ih-stat{padding:22px;border:1px solid var(--ih-line);border-radius:18px;background:var(--ih-card)}.ih-stat small{color:var(--ih-muted);text-transform:uppercase;letter-spacing:.12em}.ih-stat strong{display:block;font:700 34px 'Space Grotesk';margin-top:7px}.ih-section{margin:22px 0}.ih-section-head{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:14px}.ih-module-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}.ih-module{display:flex;flex-direction:column;min-height:230px;padding:22px;border:1px solid var(--ih-line);border-radius:18px;background:linear-gradient(145deg,#00d9ff08,#ff00aa06),var(--ih-card);transition:.2s}.ih-module:hover{transform:translateY(-4px);border-color:#00d9ff55}.ih-module .num{color:var(--ih-cyan);font-size:11px;font-weight:800;letter-spacing:.13em}.ih-module h3{margin:10px 0 8px;font:700 20px 'Space Grotesk'}.ih-module p{color:var(--ih-muted);font-size:13px;margin:0 0 18px}.ih-module .open{margin-top:auto}.ih-bottom{display:grid;grid-template-columns:1.3fr .7fr;gap:16px}.ih-panel{padding:22px;border:1px solid var(--ih-line);border-radius:18px;background:var(--ih-card)}.ih-progress{height:10px;border-radius:99px;background:#ffffff0c;overflow:hidden;margin:14px 0}.ih-progress b{display:block;height:100%;background:linear-gradient(90deg,var(--ih-cyan),var(--ih-mag));border-radius:inherit}.ih-checks{display:grid;gap:10px;padding:0;margin:0;list-style:none}.ih-checks li{padding:12px 14px;border:1px solid var(--ih-line);border-radius:12px;color:var(--ih-muted)}.ih-checks li b{color:var(--ih-text)}
+@media(max-width:1000px){.ih-module-grid{grid-template-columns:repeat(2,1fr)}.ih-stat-grid{grid-template-columns:repeat(2,1fr)}.ih-bottom{grid-template-columns:1fr}}
+@media(max-width:600px){.ih-dashboard .hero-row{flex-direction:column}.ih-module-grid,.ih-stat-grid{grid-template-columns:1fr}.ih-dashboard .hero{padding-top:28px}}
+</style>
+</head>
+<body>
+<header class="ih-header"><a class="ih-brand" href="/app/dashboard"><span class="ih-mark">IH</span>INTELLIHIRE</a><nav class="ih-nav"><span class="ih-tag">CANDIDATE WORKSPACE</span><a href="/app/module5">Readiness</a><a class="ih-primary" href="/auth/logout">Sign out</a></nav></header>
+<main class="ih-container ih-dashboard">
+<section class="hero"><div class="hero-row"><div><div class="ih-eyebrow">CANDIDATE DASHBOARD</div><h1 class="welcome">Welcome, {{ user.name or user.email }}</h1><p class="ih-sub">Your placement journey in one workspace. Resume → Assessment → Interview → HR → Readiness.</p></div><div class="ih-actions"><a class="ih-btn ih-primary" href="/app/module1/overview">Start Module 1 →</a><a class="ih-btn" href="/app/module5">View readiness</a></div></div></section>
+<section class="ih-stat-grid">
+<div class="ih-stat"><small>Journey</small><strong>5 Modules</strong><span class="ih-muted">Connected preparation</span></div>
+<div class="ih-stat"><small>AI Layer</small><strong>Live</strong><span class="ih-muted">Context-aware assistance</span></div>
+<div class="ih-stat"><small>Readiness</small><strong id="readiness">—</strong><span class="ih-muted">Evidence-based score</span></div>
+<div class="ih-stat"><small>Next Step</small><strong id="nextModule">Module 1</strong><span class="ih-muted">Recommended preparation</span></div>
+</section>
+<section class="ih-section"><div class="ih-section-head"><div><div class="ih-eyebrow">PLACEMENT JOURNEY</div><h2 class="ih-section-title">Your five-module workspace</h2></div></div>
+<div class="ih-module-grid">
+<article class="ih-module"><div class="num">MODULE 01</div><h3>ATS & Resume Intelligence</h3><p>Compare your resume with a Job Description, identify missing skills and create an ATS-friendly resume.</p><a class="ih-btn open" href="/app/module1/overview">Open Module →</a></article>
+<article class="ih-module"><div class="num">MODULE 02</div><h3>Adaptive Assessment</h3><p>Practice skill-based questions with adaptive difficulty and performance scoring.</p><a class="ih-btn open" href="/app/module2/overview">Open Module →</a></article>
+<article class="ih-module"><div class="num">MODULE 03</div><h3>Technical Interview</h3><p>Prepare for technical interviews with structured questioning and evaluation.</p><a class="ih-btn open" href="/app/module3">Open Module →</a></article>
+<article class="ih-module"><div class="num">MODULE 04</div><h3>HR & Behavioral</h3><p>Practice behavioral questions and receive AI-supported communication feedback.</p><a class="ih-btn open" href="/app/module4">Open Module →</a></article>
+<article class="ih-module"><div class="num">MODULE 05</div><h3>Hiring Readiness</h3><p>Combine Modules 1–4 into readiness intelligence, skill gaps and a career roadmap.</p><a class="ih-btn open" href="/app/module5">Open Module →</a></article>
+</div></section>
+<section class="ih-bottom">
+<div class="ih-panel"><div class="ih-eyebrow">READINESS SNAPSHOT</div><h2 class="ih-section-title">Build evidence, not guesswork.</h2><p class="ih-muted">Your readiness score is derived from observed module evidence. Complete more modules to improve confidence and coverage.</p><div class="ih-progress"><b id="progress" style="width:0%"></b></div><div class="ih-actions"><a class="ih-btn ih-primary" href="/app/module5">Open readiness intelligence</a><a class="ih-btn" href="/app/module1/overview">Optimize resume</a></div></div>
+<div class="ih-panel"><div class="ih-eyebrow">NEXT ACTIONS</div><ul class="ih-checks" id="actions"><li><b>Start with Module 1</b><br>Upload your resume and target Job Description.</li><li><b>Complete interview evidence</b><br>Use Modules 3 and 4 to strengthen readiness confidence.</li><li><b>Review Module 5</b><br>Turn observed gaps into a preparation roadmap.</li></ul></div>
+</section>
+</main>
+<footer class="ih-footer">IntelliHire supports preparation and review. Employment outcomes remain human-controlled.</footer>
+<script>
+async function loadReadiness(){try{const r=await fetch('/api/module5/summary',{credentials:'same-origin',headers:{Accept:'application/json'}});if(!r.ok)return;const x=await r.json();const score=Number(x.weighted_score||0);document.getElementById('readiness').textContent=score+'/100';document.getElementById('progress').style.width=Math.max(0,Math.min(100,score))+'%';const acts=x.next_actions||[];if(acts.length){document.getElementById('actions').innerHTML=acts.slice(0,3).map(a=>'<li><b>'+String(a.area||a.module||'Next action')+'</b><br>'+String(a.action||'Continue preparation.')+'</li>').join('')}}catch(e){}}
+loadReadiness();
+</script>
+</body></html>
