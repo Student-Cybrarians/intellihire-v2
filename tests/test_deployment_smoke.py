@@ -17,6 +17,21 @@ def test_vercel_wsgi_entrypoint_and_liveness():
     assert response.headers["X-Frame-Options"] == "DENY"
 
 
+def test_public_root_contract():
+    client = _client()
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "INTELLIHIRE" in response.get_data(as_text=True)
+
+
+def test_public_pages_contract():
+    client = _client()
+    for path in ("/about", "/how-it-works", "/features", "/pricing", "/contact"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert "IntelliHire" in response.get_data(as_text=True)
+
+
 def test_core_health_contract():
     client = _client()
     response = client.get("/api/health")
