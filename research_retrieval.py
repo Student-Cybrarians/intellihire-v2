@@ -129,6 +129,8 @@ def synthesize(brief, context=None, timeout=None):
     sources=brief.get("sources",[])
     if not sources:
         return {"provider":"deterministic-fallback","is_ai":False,"synthesis_status":"no_evidence","answer":"No live evidence was retrieved. Configure retrieval before relying on this research.","key_findings":[],"implications_for_candidate":[],"learning_actions":[],"citations":[]}
+    if not os.getenv("DEEPSEEK_API_KEY") and not os.getenv("OPENAI_API_KEY"):
+        return {"provider":"deterministic-fallback","is_ai":False,"synthesis_status":"evidence_only","answer":"Evidence was retrieved, but no AI synthesis provider is configured. Review the cited evidence directly.","key_findings":[{"finding":c.get('evidence',''),'citation':c.get('source_url','')} for c in brief.get('claims',[])],"implications_for_candidate":[],"learning_actions":[],"citations":[s.get('url','') for s in sources]}
     if os.getenv("OPENAI_API_KEY") and not os.getenv("DEEPSEEK_API_KEY"):
         try:
             system=("You are IntelliHire Personal AI Research Intern. Synthesize ONLY from supplied evidence. Do not invent facts, URLs, employers, skills or claims. Return JSON with answer, key_findings, implications_for_candidate, learning_actions, citations.")
