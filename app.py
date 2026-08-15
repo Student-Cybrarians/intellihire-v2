@@ -1,5 +1,5 @@
-from flask import Flask,jsonify,request,render_template,session,redirect,render_template_string,send_file,abort
-import os,re,math,json
+from flask import Flask,jsonify,request,render_template,session,redirect,render_template_string,send_file,abort,g
+import os,re,math,json,time
 from io import BytesIO
 from collections import Counter
 from module2_routes import module2
@@ -8,12 +8,40 @@ from module3_routes import module3
 from module4_routes import module4
 from module5_routes import module5
 from auth_routes import auth,current_user,require_auth
-from auth_db import init_db,record_performance,list_user_summaries,get_user_performance,get_user_activity
+from auth_db import init_db,record_performance,list_user_summaries,get_user_performance,get_user_activity,audit
+from production_hardening import request_id,client_key,rate_limit,security_headers
 
 app=Flask(__name__,static_folder='static',template_folder='templates')
 app.secret_key=os.getenv('FLASK_SECRET_KEY',os.getenv('SESSION_SECRET','dev-only-change-me'))
-app.config.update(SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SECURE=True,SESSION_COOKIE_SAMESITE='Lax')
+app.config.update(SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SECURE=True,SESSION_COOKIE_SAMESITE='Lax',MAX_CONTENT_LENGTH=int(os.getenv('MAX_REQUEST_BYTES','5242880')))
 app.register_blueprint(auth);app.register_blueprint(module2);app.register_blueprint(module3);app.register_blueprint(module4);app.register_blueprint(module5)
+
+@app.before_request
+def production_request_guard():
+    g.request_id=request_id();g.started_at=time.monotonic()
+    if request.path.startswith('/static/'):
+        return None
+    limit=int(os.getenv('RATE_LIMIT_REQUESTS','60'))
+    if request.path.startswith('/api/'):
+        limit=int(os.getenv('API_RATE_LIMIT_REQUESTS','30'))
+    ok,retry=rate_limit(client_key(request),limit=limit)
+    if not ok:
+        response=jsonify({'error':'rate_limited','request_id':g.request_id,'retry_after':retry});response.status_code=429;response.headers['Retry-After']=str(retry);return response
+
+@app.after_request
+def production_response_guard(response):
+    response=security_headers(response);response.headers['X-Request-ID']=getattr(g,'request_id','')
+    elapsed=round((time.monotonic()-getattr(g,'started_at',time.monotonic()))*1000,2)
+    response.headers['Server-Timing']=f'app;dur={elapsed}'
+    return response
+
+@app.errorhandler(413)
+def too_large(_):
+    return jsonify({'error':'request_too_large','request_id':getattr(g,'request_id',None)}),413
+
+@app.errorhandler(429)
+def too_many(_):
+    return jsonify({'error':'rate_limited','request_id':getattr(g,'request_id',None)}),429
 
 SKILLS=['python','javascript','react','node.js','java','sql','mongodb','postgresql','rest api','docker','kubernetes','aws','fastapi','flask','django','pytorch','tensorflow','nlp','machine learning','deep learning','scikit-learn','system design','microservices','git','linux','pandas','numpy']
 DEMO={'name':'Alex Johnson','role':'Software Engineer','company':'TechNova','skills':['Python','React','JavaScript','Node.js','MongoDB','REST API','Git','Pandas','NumPy'],'experience':3}
@@ -78,96 +106,3 @@ def admin_user_module(user_id,module):
     return jsonify({'user':{'id':users[0]['id'],'name':users[0]['name'],'email':users[0]['email']},'module':module,'performance':item})
 
 def _excel(user_ids):
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
-    _safe_db_init()
-    all_users=list_user_summaries()
-    chosen=[u for u in all_users if not user_ids or u['id'] in set(user_ids)]
-    wb=Workbook(); ws=wb.active; ws.title='Performance'
-    headers=['User ID','Name','Email','Status','Module 1','Module 2','Module 3','Module 4','Module 5','Overall','Last Login']
-    ws.append(headers)
-    for c in ws[1]: c.font=Font(bold=True,color='FFFFFF'); c.fill=PatternFill('solid',fgColor='173761')
-    for u in chosen:
-        ws.append([u['id'],u['name'],u['email'],u['status'],*[u['scores'][m]['score'] if u['scores'][m] else None for m in ['module1','module2','module3','module4','module5']],u['overall'],u['last_login_at']])
-    for col in ws.columns:
-        ws.column_dimensions[col[0].column_letter].width=max(14,min(34,max(len(str(cell.value or '')) for cell in col)+2))
-    activity_ws=wb.create_sheet('Activity')
-    activity_ws.append(['User ID','Event','Timestamp','Metadata'])
-    for c in activity_ws[1]: c.font=Font(bold=True,color='FFFFFF'); c.fill=PatternFill('solid',fgColor='173761')
-    for u in chosen:
-        for a in get_user_activity(u['id']): activity_ws.append([u['id'],a['event'],a['created_at'],json.dumps(a['metadata'])])
-    output=BytesIO(); wb.save(output); output.seek(0); return output
-
-@app.get('/admin/reports.xlsx')
-def admin_report_all():
-    user,response=require_auth('ADMIN')
-    if response:return response
-    return send_file(_excel([]),mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',as_attachment=True,download_name='intellihire_users_performance.xlsx')
-
-@app.post('/admin/reports.xlsx')
-def admin_report_selected():
-    user,response=require_auth('ADMIN')
-    if response:return response
-    ids=request.form.getlist('user_id')
-    if not ids:return redirect('/admin')
-    return send_file(_excel(ids),mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',as_attachment=True,download_name='intellihire_selected_users.xlsx')
-
-@app.get('/admin/users/<user_id>/report.xlsx')
-def admin_report_user(user_id):
-    user,response=require_auth('ADMIN')
-    if response:return response
-    return send_file(_excel([user_id]),mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',as_attachment=True,download_name=f'intellihire_{user_id}.xlsx')
-
-@app.get('/app/<path:path>')
-def shell(path):
-    user=current_user()
-    if not user:return redirect('/')
-    if path.startswith('module2'):return render_template('module2.html')
-    if path.startswith('module3'):return render_template('module3.html')
-    if path.startswith('module4'):return render_template('module4.html')
-    if path.startswith('module5'):return render_template('module5.html')
-    if path.startswith('module1'):return render_template('index.html')
-    return redirect('/app/dashboard')
-
-@app.post('/app/module2/start')
-def start_m2():
-    user,response=require_auth('USER')
-    if response:return response
-    session['m2']={'ability':0.0,'answered':[],'events':[],'section':request.form.get('section',''),'count':int(request.form.get('count',8))};return redirect('/app/module2/assessment')
-@app.route('/app/module2/assessment',methods=['GET','POST'])
-def assessment():
-    user,response=require_auth('USER')
-    if response:return response
-    s=session.get('m2',{'ability':0.0,'answered':[],'events':[],'section':'','count':8})
-    if request.method=='POST':
-        q=next((x for x in QUESTION_BANK if x.id==request.form.get('question_id')),None)
-        if q:
-            e=evaluate_answer(s['ability'],q,int(request.form.get('answer',-1)));s['events'].append(e);s['answered'].append(q.id);s['ability']=e['ability_after'];session['m2']=s
-    if len(s['events'])>=s['count']:
-        result=score_assessment(s['events'])
-        try:record_performance(user['id'],'module2',result.get('score',result.get('overall',0)),result)
-        except Exception:pass
-        return redirect('/app/module2/results')
-    q=select_next(s['ability'],s['answered'],s['section'] or None);return render_template('module2_assessment.html',question=q,ability=s['ability'],progress=len(s['events']),total=s['count'])
-@app.get('/app/module2/results')
-def m2_results():
-    user,response=require_auth('USER')
-    if response:return response
-    result=score_assessment(session.get('m2',{}).get('events',[]))
-    try:record_performance(user['id'],'module2',result.get('score',result.get('overall',0)),result)
-    except Exception:pass
-    return render_template('module2_results.html',result=result)
-
-@app.get('/api/health')
-def health():return jsonify({'status':'ok','engine':'IntelliHire Python ML Engine','version':'2.7','modules':['module1','module2','module3','module4','module5'],'auth':'enabled','admin_reporting':'enabled'})
-@app.get('/api/demo')
-def demo():return jsonify({'resume':DEMO,'job':JOB,'result':analyze({})})
-@app.post('/api/analyze')
-def api_analyze():
-    user,response=require_auth('USER')
-    if response:return response
-    result=analyze(request.get_json(silent=True) or {})
-    try:record_performance(user['id'],'module1',result.get('atsScore',0),result)
-    except Exception:pass
-    return jsonify(result)
-if __name__=='__main__':app.run(host='0.0.0.0',port=int(os.getenv('PORT','5000')))
