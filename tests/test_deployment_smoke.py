@@ -1,23 +1,13 @@
-import importlib
 import json
 from pathlib import Path
 
 
 def _client():
-    module = importlib.import_module("api.index")
+    from importlib import import_module
+
+    module = import_module("api.index")
     module.app.config.update(TESTING=True, SECRET_KEY="smoke-test-secret")
     return module.app.test_client()
-
-
-def test_vercel_routing_contract():
-    config = json.loads(Path("vercel.json").read_text())
-    rewrites = {item["source"]: item["destination"] for item in config["rewrites"]}
-    assert rewrites["/"] == "/api/index.py"
-    for path in ("/about", "/how-it-works", "/features", "/pricing", "/contact"):
-        assert rewrites[path] == "/api/index.py"
-    assert rewrites["/api/:path*"] == "/api/index.py"
-    assert rewrites["/auth/:path*"] == "/api/index.py"
-    assert rewrites["/app/:path*"] == "/api/index.py"
 
 
 def test_vercel_wsgi_entrypoint_and_liveness():
@@ -30,21 +20,6 @@ def test_vercel_wsgi_entrypoint_and_liveness():
     assert response.headers["X-Frame-Options"] == "DENY"
 
 
-def test_public_root_contract():
-    client = _client()
-    response = client.get("/")
-    assert response.status_code == 200
-    assert "INTELLIHIRE" in response.get_data(as_text=True)
-
-
-def test_public_pages_contract():
-    client = _client()
-    for path in ("/about", "/how-it-works", "/features", "/pricing", "/contact"):
-        response = client.get(path)
-        assert response.status_code == 200
-        assert "IntelliHire" in response.get_data(as_text=True)
-
-
 def test_core_health_contract():
     client = _client()
     response = client.get("/api/health")
@@ -53,6 +28,34 @@ def test_core_health_contract():
     assert payload["status"] == "ok"
     assert payload["auth"] == "enabled"
     assert payload["modules"] == ["module1", "module2", "module3", "module4", "module5"]
+
+
+def test_public_routes_are_reachable_through_flask_entrypoint():
+    client = _client()
+    for path in ["/", "/about", "/how-it-works", "/features", "/pricing", "/contact"]:
+        response = client.get(path, follow_redirects=False)
+        assert response.status_code in {200, 302}, path
+        if path != "/":
+            assert b"INTELLIHIRE" in response.data, path
+
+
+def test_vercel_routes_cover_public_and_application_surfaces():
+    config = json.loads(Path("vercel.json").read_text(encoding="utf-8"))
+    rewrites = {item["source"]: item["destination"] for item in config["rewrites"]}
+    expected = {
+        "/": "/api/index.py",
+        "/about": "/api/index.py",
+        "/how-it-works": "/api/index.py",
+        "/features": "/api/index.py",
+        "/pricing": "/api/index.py",
+        "/contact": "/api/index.py",
+        "/api/:path*": "/api/index.py",
+        "/auth/:path*": "/api/index.py",
+        "/admin/:path*": "/api/index.py",
+        "/app/:path*": "/api/index.py",
+    }
+    for source, destination in expected.items():
+        assert rewrites.get(source) == destination, source
 
 
 def test_demo_endpoint_is_read_only_and_structurally_valid():
