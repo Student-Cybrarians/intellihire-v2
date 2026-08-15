@@ -58,7 +58,6 @@ def create_conversation_api():
     cid=create_conversation(user['id'],subject,priority)
     add_message(cid,user['id'],'USER',message,{'channel':'dashboard_support'})
     _audit('SUPPORT_CONVERSATION_CREATED',user['id'],user['id'],{'conversation_id':cid,'subject':subject})
-    # A deterministic assistant acknowledgement makes the support flow immediately visible while keeping the admin as the human responder.
     add_message(cid,None,'ASSISTANT','Thanks — your request is saved. An IntelliHire admin can review it and reply here. Please include the affected module, expected behavior, and what you observed when relevant.',{'type':'acknowledgement'})
     return jsonify({'conversation':get_conversation(cid),'messages':get_messages(cid)}),201
 
@@ -104,3 +103,26 @@ def admin_support_page():
     user,response=require_auth('ADMIN')
     if response:return response
     return render_template('support_admin.html',user=user)
+
+
+@support.after_app_request
+def dashboard_support_launcher(response):
+    """Add a small persistent Support/Inbox launcher to the existing inline dashboards.
+
+    This avoids rewriting the existing dashboard templates while making the new support
+    workflow reachable from the user and admin dashboards themselves.
+    """
+    if not response.is_streamed and response.content_type and response.content_type.startswith('text/html') and request.path in {'/app/dashboard','/admin'}:
+        try:
+            current_user, _ = _auth()
+            user=current_user()
+            if user:
+                href='/auth/support/admin' if user.get('role')=='ADMIN' else '/auth/support/'
+                label='Support Inbox' if user.get('role')=='ADMIN' else 'Chat with IntelliHire Admin'
+                html=f'''<style id="intellihire-support-launcher">#intellihire-support-launcher{{position:fixed;right:24px;bottom:24px;z-index:9999;display:flex;align-items:center;gap:8px;padding:13px 17px;border-radius:999px;background:#0d6efd;color:#fff;text-decoration:none;font:600 14px system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.25)}}#intellihire-support-launcher:hover{{filter:brightness(1.08);transform:translateY(-1px)}}#intellihire-support-launcher .dot{{width:9px;height:9px;border-radius:50%;background:#20c997}}</style><a id="intellihire-support-launcher" href="{href}" aria-label="{label}"><span class="dot"></span>{label}</a>'''
+                body=response.get_data(as_text=True)
+                if '</body>' in body and 'intellihire-support-launcher' not in body:
+                    response.set_data(body.replace('</body>',html+'</body>'))
+        except Exception:
+            pass
+    return response
