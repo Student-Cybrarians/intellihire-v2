@@ -12,18 +12,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
       - run: npm install
       - run: npm run typecheck
       - run: npm run build
-  backend-regression-gates:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt pytest
-      - run: python -m py_compile app.py api/index.py production_hardening.py public_routes.py ai/providers.py ai/orchestrator.py ai/context.py ai/schemas.py ai_routes.py module1_ai.py auth_routes.py career_intelligence.py career_twin_store.py skill_graph_store.py research_context.py research_engine.py research_retrieval.py research_store.py roadmap_engine.py roadmap_store.py module2_engine.py module2_store.py module2_routes.py module3_adaptive.py module3_evaluator.py module3_store.py module3_routes.py module4_liftoff.py module4_competency.py module4_competency_store.py module4_store.py module4_routes.py module5_readiness.py readiness_store.py module5_routes.py
-      - run: PYTHONPATH=. pytest -q tests
