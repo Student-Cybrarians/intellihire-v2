@@ -8,7 +8,10 @@
     }
   },
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": {
+      "*": false,
+      "master-branch": true
+    }
   },
   "github": {
     "autoAlias": false
