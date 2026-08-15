@@ -98,6 +98,11 @@ async function requestProvider(provider: Provider, messages: ChatMessage[], maxT
 }
 
 export async function POST(request: NextRequest) {
+  const gatewayToken = process.env.INTELLIHIRE_AI_GATEWAY_TOKEN;
+  if (!gatewayToken || request.headers.get('x-intellihire-ai-token') !== gatewayToken) {
+    return NextResponse.json({ error: 'Unauthorized AI gateway request' }, { status: 401 });
+  }
+
   try {
     const body = await request.json() as {
       messages?: ChatMessage[];
