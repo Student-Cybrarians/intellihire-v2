@@ -1,3 +1,4 @@
+from module5_engine import evaluate
 from module5_readiness import build_readiness
 
 
@@ -25,3 +26,12 @@ def test_module_scores_only_use_observed_performance_for_weight_denominator():
     result = build_readiness({'Module 1': {'score': 100}}, {}, {}, {}, {})
     assert result['module_scores']['Module 1'] == 100
     assert result['weighted_score'] <= 100
+
+
+def test_compatibility_engine_cannot_emit_employment_decision():
+    result = evaluate({'Module 1': 100, 'Module 2': 100, 'Module 3': 100, 'Module 4': 100, 'Module 5': 100})
+    assert result['weighted_score'] == 100
+    assert 'decision' not in result
+    assert 'hiring_probability' not in result
+    assert result['integrity']['autonomous_hiring_decision'] is False
+    assert result['integrity']['ranking_or_rejection'] is False
