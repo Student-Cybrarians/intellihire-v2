@@ -98,7 +98,21 @@ def research():
     data=request.get_json(silent=True) or {}; question=str(data.get('question','')).strip()
     if not question:return jsonify({'error':'research_question_required'}),400
     try:
-        twin=latest_career_twin(user['id']) or {}; twin['behavioral_competencies']=_behavioral(user['id']); brief=run_research(twin,question,data.get('sources'),data.get('max_sources',6)); brief['persistence']=save_research_brief(user['id'],question,brief); return jsonify(brief)
+        twin=latest_career_twin(user['id']) or {}
+        behavioral=_behavioral(user['id'])
+        graph=latest_skill_graph(user['id']) or twin.get('skill_graph') or {}
+        roadmap=latest_roadmap(user['id']) or {}
+        brief=run_research(
+            twin,
+            question,
+            data.get('sources'),
+            data.get('max_sources',6),
+            skill_graph=graph,
+            behavioral=behavioral,
+            roadmap=roadmap,
+        )
+        brief['persistence']=save_research_brief(user['id'],question,brief)
+        return jsonify(brief)
     except ValueError as exc:return jsonify({'error':str(exc)}),400
     except Exception:return jsonify({'error':'research_service_unavailable'}),503
 
