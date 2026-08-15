@@ -6,6 +6,7 @@ from auth_routes import require_auth
 from auth_db import get_user_performance, record_performance
 from career_intelligence import build_career_twin, build_roadmap
 from career_twin_store import save as save_career_twin, latest as latest_career_twin
+from skill_graph_store import save as save_skill_graph, latest as latest_skill_graph
 from module4_competency_store import get_competencies
 from research_retrieval import run_research
 from research_store import save as save_research_brief, latest as latest_research_briefs
@@ -58,7 +59,13 @@ def career_twin():
     data=request.get_json(silent=True) or {}; resume=str(data.get('resume','')); jd=str(data.get('job_description',data.get('jd',''))); role=str(data.get('role',''))
     if not resume.strip() or not jd.strip():return jsonify({'error':'resume_and_job_description_required'}),400
     try:
-        twin=build_career_twin(resume,jd,role); twin['behavioral_competencies']=_behavioral(user['id']); twin['roadmap']=build_roadmap(twin,data.get('weeks',8)); twin['persistence']=save_career_twin(user['id'],twin,resume,jd); return jsonify(twin)
+        twin=build_career_twin(resume,jd,role)
+        twin['behavioral_competencies']=_behavioral(user['id'])
+        twin['roadmap']=build_roadmap(twin,data.get('weeks',8))
+        twin['persistence']=save_career_twin(user['id'],twin,resume,jd)
+        twin['skill_graph_persistence']=save_skill_graph(user['id'],twin)
+        twin['skill_graph']=twin['skill_graph_persistence']['graph']
+        return jsonify(twin)
     except Exception:return jsonify({'error':'career_twin_persistence_unavailable'}),503
 
 @module5.get('/career-twin')
@@ -68,7 +75,21 @@ def get_career_twin():
     try:twin=latest_career_twin(user['id'])
     except Exception:return jsonify({'error':'career_twin_persistence_unavailable'}),503
     if not twin:return jsonify({'error':'career_twin_not_found'}),404
+    try:
+        graph=latest_skill_graph(user['id'])
+        if graph:twin['skill_graph']=graph
+    except Exception:
+        return jsonify({'error':'career_twin_skill_graph_unavailable'}),503
     return jsonify(twin)
+
+@module5.get('/career-twin/skill-graph')
+def get_skill_graph():
+    user,response=require_auth('USER')
+    if response:return response
+    try: graph=latest_skill_graph(user['id'])
+    except Exception:return jsonify({'error':'skill_graph_persistence_unavailable'}),503
+    if not graph:return jsonify({'error':'skill_graph_not_found'}),404
+    return jsonify(graph)
 
 @module5.post('/research')
 def research():
