@@ -20,11 +20,7 @@ def score_transcript(transcript, question):
     words=_words(transcript); n=len(words); text=' '.join(words)
     has=lambda *terms:any(t in text for t in terms)
     fillers=len(re.findall(r"\b(um|uh|erm|like|you know|basically)\b", transcript or '', re.I))
-    star={
-      'situation':int(n>=25 and has('situation','context','project','team','when')),
-      'task':int(n>=30 and has('goal','responsibility','task','needed','asked')),
-      'action':int(n>=35 and has('i led','i built','i created','i implemented','i resolved','i designed','i decided','i worked')),
-      'result':int(n>=40 and has('result','impact','improved','increased','reduced','achieved','learned','outcome'))}
+    star={'situation':int(n>=25 and has('situation','context','project','team','when')),'task':int(n>=30 and has('goal','responsibility','task','needed','asked')),'action':int(n>=35 and has('i led','i built','i created','i implemented','i resolved','i designed','i decided','i worked')),'result':int(n>=40 and has('result','impact','improved','increased','reduced','achieved','learned','outcome'))}
     relevance=min(100,55+len(set(_words(question)) & set(words))*5)
     clarity=max(45,min(98,62+min(28,n//7)-fillers*2)); confidence=max(40,min(96,58+min(32,n//6)-fillers))
     communication=round((clarity+confidence+relevance)/3); star_score=round(sum(star.values())/4*100)
@@ -39,8 +35,7 @@ def score_transcript(transcript, question):
     return {'confidence':confidence,'clarity':clarity,'eye_contact':0,'communication':communication,'relevance':relevance,'star_score':star_score,'star':star,'sentiment':sentiment,'filler_count':fillers,'word_count':n,'feedback':feedback}
 
 def start(role='Software Engineer', interviewer='AI HR Manager', duration=15):
-    now=datetime.now(timezone.utc)
-    return {'id':'int-'+now.strftime('%Y%m%d%H%M%S%f'),'role':role,'interviewer':interviewer,'duration':duration,'question_index':0,'events':[],'status':'IN_PROGRESS','created_at':now.isoformat()}
+    now=datetime.now(timezone.utc); return {'id':'int-'+now.strftime('%Y%m%d%H%M%S%f'),'role':role,'interviewer':interviewer,'duration':duration,'question_index':0,'events':[],'status':'IN_PROGRESS','created_at':now.isoformat()}
 
 def question(state):
     i=state.get('question_index',0); return QUESTIONS[i] if i<len(QUESTIONS) else None
@@ -65,7 +60,7 @@ def _chat(url,key,model,system,user):
     if not key or requests is None:return None
     payload={'model':model,'messages':[{'role':'system','content':system},{'role':'user','content':user}],'temperature':0.2,'max_tokens':450}
     try:
-        r=requests.post(url,headers={'Authorization':f'Bearer {key}','Content-Type':'application/json','Accept':'application/json'},json=payload,timeout=45); r.raise_for_status(); data=r.json()
+        r=requests.post(url,headers={'Authorization':f'Bearer {key}','Content-Type':'application/json','Accept':'application/json'},json=payload,timeout=float(os.getenv('INTELLIHIRE_AI_PROVIDER_TIMEOUT_SECONDS','10'))); r.raise_for_status(); data=r.json()
         return data.get('choices',[{}])[0].get('message',{}).get('content')
     except Exception:return None
 
