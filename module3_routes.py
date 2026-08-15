@@ -1,10 +1,10 @@
 from flask import Blueprint, jsonify, request
-import re, uuid
+import re
 from auth_routes import require_auth
 from auth_db import record_performance
+from module3_store import init_module3_db, create_session, get_session, save_session, latest_session
 
 module3 = Blueprint('module3', __name__, url_prefix='/api/module3')
-SESSIONS = {}
 QUESTIONS = [
     {'id':'tech-01','difficulty':'medium','topic':'Python','prompt':'Explain how you would design a scalable Python API and handle slow dependencies.'},
     {'id':'tech-02','difficulty':'hard','topic':'Algorithms','prompt':'Given a list of integers, explain an O(n) approach to finding the first duplicate.'},
@@ -18,25 +18,47 @@ def score_answer(text):
     quality=min(100, round(45 + min(35,n/3) + hits*3))
     return {'score':quality,'accuracy':quality,'communication':min(100,50+n*2),'concept_hits':hits}
 
-def _auth():
-    user,response=require_auth('USER')
-    return user,response
+def _auth(): return require_auth('USER')
+
+def _safe_init():
+    try: init_module3_db(); return None
+    except Exception: return jsonify({'error':'service_unavailable'}),503
+
+def _load(sid,user_id):
+    try: return get_session(sid,user_id)
+    except Exception: return None
 
 @module3.post('/start')
 def start():
     user,response=_auth()
     if response:return response
-    sid='tech-'+uuid.uuid4().hex[:12]
-    state={'id':sid,'user_id':user['id'],'role':(request.get_json(silent=True) or {}).get('role','Software Engineer'),'index':0,'events':[]}
-    SESSIONS[sid]=state
-    return jsonify({'session':state,'question':QUESTIONS[0]}),201
+    data=request.get_json(silent=True) or {}
+    role=str(data.get('role','Software Engineer')).strip()[:120]
+    if not role:return jsonify({'error':'role_required'}),422
+    init=_safe_init()
+    if init:return init
+    state={'index':0,'events':[],'total':len(QUESTIONS)}
+    try: sid=create_session(user['id'],role,state)
+    except Exception:return jsonify({'error':'service_unavailable'}),503
+    return jsonify({'session':{'id':sid,'role':role,'progress':0,'total':len(QUESTIONS)},'question':QUESTIONS[0]}),201
+
+@module3.get('/resume')
+def resume():
+    user,response=_auth()
+    if response:return response
+    try: init_module3_db(); s=latest_session(user['id'])
+    except Exception:return jsonify({'error':'service_unavailable'}),503
+    if not s:return jsonify({'error':'session_not_found'}),404
+    q=QUESTIONS[s['index']] if s['index']<len(QUESTIONS) else None
+    return jsonify({'session':{'id':s['id'],'role':s['role'],'progress':s['index'],'total':len(QUESTIONS),'completed':bool(s.get('completed_at'))},'question':q})
 
 @module3.get('/question')
 def question():
     user,response=_auth()
     if response:return response
-    sid=request.args.get('session_id'); s=SESSIONS.get(sid)
-    if not s or s.get('user_id')!=user['id']:return jsonify({'error':'session_not_found'}),404
+    sid=request.args.get('session_id'); s=_load(sid,user['id'])
+    if not s:return jsonify({'error':'session_not_found'}),404
+    if s.get('completed_at'):return jsonify({'error':'interview_complete'}),409
     q=QUESTIONS[s['index']] if s['index']<len(QUESTIONS) else None
     return jsonify({'question':q,'progress':s['index'],'total':len(QUESTIONS)})
 
@@ -44,24 +66,33 @@ def question():
 def answer():
     user,response=_auth()
     if response:return response
-    data=request.get_json(silent=True) or {}; s=SESSIONS.get(data.get('session_id'))
-    if not s or s.get('user_id')!=user['id']:return jsonify({'error':'session_not_found'}),404
+    data=request.get_json(silent=True) or {}; sid=data.get('session_id'); s=_load(sid,user['id'])
+    if not s:return jsonify({'error':'session_not_found'}),404
+    if s.get('completed_at'):return jsonify({'error':'interview_complete'}),409
     text=str(data.get('answer','')).strip()
     if not text:return jsonify({'error':'answer_required'}),422
+    if len(text)>12000:return jsonify({'error':'answer_too_long'}),413
     if s['index']>=len(QUESTIONS):return jsonify({'error':'interview_complete'}),409
     q=QUESTIONS[s['index']]; result=score_answer(text)
-    s['events'].append({'question':q,'answer':text,'evaluation':result}); s['index']+=1
-    return jsonify({'evaluation':result,'next':QUESTIONS[s['index']] if s['index']<len(QUESTIONS) else None})
+    s['events'].append({'question_id':q['id'],'answer':text,'evaluation':result}); s['index']+=1
+    try: save_session(sid,user['id'],s)
+    except Exception:return jsonify({'error':'service_unavailable'}),503
+    return jsonify({'evaluation':result,'next':QUESTIONS[s['index']] if s['index']<len(QUESTIONS) else None,'progress':s['index'],'total':len(QUESTIONS)})
 
 @module3.post('/finish')
 def finish():
     user,response=_auth()
     if response:return response
-    data=request.get_json(silent=True) or {}; s=SESSIONS.get(data.get('session_id'))
-    if not s or s.get('user_id')!=user['id']:return jsonify({'error':'session_not_found'}),404
-    scores=[e['evaluation']['score'] for e in s['events']]
-    score=round(sum(scores)/len(scores),1) if scores else 0
+    data=request.get_json(silent=True) or {}; sid=data.get('session_id'); s=_load(sid,user['id'])
+    if not s:return jsonify({'error':'session_not_found'}),404
+    if s.get('completed_at'):
+        scores=[e['evaluation']['score'] for e in s['events']]; score=round(sum(scores)/len(scores),1) if scores else 0
+        return jsonify({'score':score,'questions_answered':len(scores),'completed':True})
+    if s['index']<len(QUESTIONS):return jsonify({'error':'interview_incomplete','remaining':len(QUESTIONS)-s['index']}),409
+    scores=[e['evaluation']['score'] for e in s['events']]; score=round(sum(scores)/len(scores),1) if scores else 0
     result={'score':score,'questions_answered':len(scores),'events':s['events']}
-    try: record_performance(user['id'],'module3',score,result)
-    except Exception: pass
-    return jsonify(result)
+    try:
+        save_session(sid,user['id'],s,completed=True)
+        record_performance(user['id'],'module3',score,result)
+    except Exception:return jsonify({'error':'service_unavailable'}),503
+    return jsonify({**result,'completed':True})
