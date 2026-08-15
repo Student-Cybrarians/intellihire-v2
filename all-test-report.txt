@@ -1,24 +1,3 @@
-.......................................................................F [ 92%]
+........................................................................ [ 92%]
 ......                                                                   [100%]
-=================================== FAILURES ===================================
-_____________________ test_synthesis_falls_back_without_ai _____________________
-
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffb838de950>
-
-    def test_synthesis_falls_back_without_ai(monkeypatch):
-        monkeypatch.delenv('OPENAI_API_KEY',raising=False)
-        monkeypatch.delenv('NVIDIA_API_KEY',raising=False)
-        result=research_retrieval.synthesize({'question':'q','sources':[{'title':'Trusted','url':'https://trusted.example/a','snippet':'evidence'}],'claims':[{'evidence':'evidence','source_url':'https://trusted.example/a'}]})
->       assert result['provider'] == 'deterministic-fallback'
-E       AssertionError: assert 'none' == 'deterministic-fallback'
-E         
-E         - deterministic-fallback
-E         + none
-
-tests/test_research_retrieval.py:35: AssertionError
-=========================== short test summary info ============================
-FAILED tests/test_research_retrieval.py::test_synthesis_falls_back_without_ai - AssertionError: assert 'none' == 'deterministic-fallback'
-  
-  - deterministic-fallback
-  + none
-1 failed, 77 passed in 2.03s
+78 passed in 2.01s
