@@ -46,7 +46,7 @@ def home():
 def dashboard():
     user,response=require_auth('USER')
     if response:return response
-    return render_template_string(DASH_HTML,user=user)
+    return render_template('dashboard.html', user=user)
 
 @app.get('/admin')
 def admin_dashboard():
