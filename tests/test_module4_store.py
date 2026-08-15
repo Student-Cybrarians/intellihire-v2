@@ -26,6 +26,8 @@ class Module4StoreTests(unittest.TestCase):
             cur=conn.cursor.return_value.__enter__.return_value
             cur.fetchall.return_value=[]
             self.assertEqual(list_sessions('user-a',999),[])
-            self.assertEqual(cur.execute.call_args.args[-1],100)
+            params=cur.execute.call_args.args[-1]
+            self.assertEqual(params[0],'user-a')
+            self.assertEqual(params[1],100)
 
 if __name__=='__main__': unittest.main()
