@@ -1,10 +1,23 @@
 import importlib
+import json
+from pathlib import Path
 
 
 def _client():
     module = importlib.import_module("api.index")
     module.app.config.update(TESTING=True, SECRET_KEY="smoke-test-secret")
     return module.app.test_client()
+
+
+def test_vercel_routing_contract():
+    config = json.loads(Path("vercel.json").read_text())
+    rewrites = {item["source"]: item["destination"] for item in config["rewrites"]}
+    assert rewrites["/"] == "/api/index.py"
+    for path in ("/about", "/how-it-works", "/features", "/pricing", "/contact"):
+        assert rewrites[path] == "/api/index.py"
+    assert rewrites["/api/:path*"] == "/api/index.py"
+    assert rewrites["/auth/:path*"] == "/api/index.py"
+    assert rewrites["/app/:path*"] == "/api/index.py"
 
 
 def test_vercel_wsgi_entrypoint_and_liveness():
