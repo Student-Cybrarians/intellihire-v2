@@ -1,6 +1,7 @@
 import pytest
 
 from module2_engine import QUESTION_BANK, evaluate_answer, score_assessment
+from module2_routes import _parse_answer, _public_question
 from module2_store import create_assessment, get_assessment
 
 
@@ -22,8 +23,24 @@ def test_adaptive_answer_never_exposes_answer_in_public_event():
     event = evaluate_answer(0.0, question, question.answer)
     assert event['correct'] is True
     assert event['question']['answer'] == question.answer
-    public_question = {k: v for k, v in event['question'].items() if k != 'answer'}
-    assert 'answer' not in public_question
+    public_question = _public_question(question)
+    assert public_question['answer'] is None
+
+
+def test_public_question_is_copy_and_does_not_mutate_bank():
+    question = QUESTION_BANK[0]
+    public_question = _public_question(question)
+    public_question['prompt'] = 'tampered'
+    public_question['answer'] = 999
+    assert question.prompt != 'tampered'
+    assert question.answer != 999
+
+
+def test_parse_answer_rejects_missing_and_non_numeric_values():
+    with pytest.raises(ValueError, match='invalid_answer'):
+        _parse_answer({})
+    with pytest.raises(ValueError, match='invalid_answer'):
+        _parse_answer({'answer': 'not-a-number'})
 
 
 def test_completed_assessment_score_is_bounded():
