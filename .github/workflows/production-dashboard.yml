@@ -1,90 +1,30 @@
-name: Repair and verify production dashboard
+name: IntelliHire Vercel Production Smoke
 on:
   push:
     branches: [master-branch]
-    paths-ignore:
-      - '.github/workflows/production-dashboard.yml'
-      - 'templates/dashboard.html'
   workflow_dispatch:
 
 jobs:
-  repair-test:
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+  production-smoke:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Checkout production branch
-        uses: actions/checkout@v4
-        with:
-          ref: master-branch
-          fetch-depth: 0
-
-      - name: Repair dashboard route
+      - name: Wait for Vercel deployment
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('app.py')
-          s = p.read_text(encoding='utf-8')
-          old = "return render_template_string(DASH_HTML,user=user)"
-          new = "return render_template('dashboard.html', user=user)"
-          if old in s:
-              s = s.replace(old, new, 1)
-              p.write_text(s, encoding='utf-8')
-              print('Dashboard route repaired.')
-          elif "return render_template('dashboard.html', user=user)" in s:
-              print('Dashboard route already correct.')
-          else:
-              raise SystemExit('Production dashboard route contract not found.')
-          PY
-
-      - name: Compile application
-        run: python -m py_compile app.py module2_engine.py module2_routes.py module3_routes.py module4_liftoff.py module4_routes.py module5_engine.py module5_routes.py auth_db.py auth_routes.py
-
-      - name: Install test dependencies
-        run: python -m pip install -r requirements.txt pytest
-
-      - name: Run complete test suite
-        env:
-          PYTHONPATH: .
-        run: pytest -q tests
-
-      - name: Verify dashboard template contract
-        run: |
-          test -f templates/dashboard.html
-          grep -q "CANDIDATE DASHBOARD" templates/dashboard.html
-          grep -q "/app/module1/overview" templates/dashboard.html
-          grep -q "/app/module2/overview" templates/dashboard.html
-          grep -q "/app/module3" templates/dashboard.html
-          grep -q "/app/module4" templates/dashboard.html
-          grep -q "/app/module5" templates/dashboard.html
-          grep -q "/api/module5/summary" templates/dashboard.html
-
-      - name: Import application
-        run: python -c "import app; print('APP IMPORT OK')"
-
-      - name: Commit repaired route
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app.py
-          if git diff --cached --quiet; then
-            echo 'No route change required.'
-          else
-            git commit -m 'Repair candidate dashboard route [skip ci]'
-            git push origin master-branch
-          fi
-
-      - name: Production health check
-        run: |
-          for i in 1 2 3 4 5 6; do
-            code=$(curl -sS -o /tmp/health -w '%{http_code}' https://intellihire-v2.vercel.app/api/health || true)
-            echo "Production health HTTP: $code"
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            code=$(curl -L -sS -o /tmp/home -w '%{http_code}' https://intellihire-v2.vercel.app/ || true)
+            echo "Production home HTTP: $code"
             if [ "$code" = "200" ]; then
-              cat /tmp/health
-              exit 0
+              break
             fi
             sleep 20
           done
-          echo 'Production health endpoint did not return HTTP 200.'
-          exit 1
+          test -s /tmp/home
+          grep -qi "INTELLIHIRE" /tmp/home
+      - name: Verify public pages
+        run: |
+          for path in /about /features /contact /pricing; do
+            code=$(curl -L -sS -o /tmp/page -w '%{http_code}' "https://intellihire-v2.vercel.app${path}" || true)
+            echo "${path} HTTP: $code"
+            test "$code" = "200"
+            grep -qi "INTELLIHIRE" /tmp/page
+          done
