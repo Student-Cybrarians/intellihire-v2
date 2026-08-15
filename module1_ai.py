@@ -65,6 +65,14 @@ def analyze_with_ai(resume_text,jd_text,company="",role=""):
     try:
         from ai import get_orchestrator
         from ai.schemas import MODULE1_SCHEMA
+        ai_result=get_orchestrator().generate_structured(user_id="module1",feature="module1_ats",task="Explain the deterministic ATS baseline, strengths, contextual matches, gaps, weak evidence and resume improvements. Never invent candidate facts.",context={"resume":resume_text[:18000],"job_description":jd_text[:14000],"company":company,"role":role,"deterministic_metrics":metrics},schema=MODULE1_SCHEMA,reasoning=True,max_tokens=2200,retries=1,cache=False)
+        ai=ai_result["data"]
+        return {"provider":ai_result["provider"],"model":ai_result["model"],"is_ai":True,"ai_metadata":{k:ai_result[k] for k in ("requestId","latencyMs","usage","promptVersion")},"baseline":metrics,"ats_score":metrics["ats_baseline"],"overall_match":metrics["ats_baseline"],"keyword_match":metrics["keyword_match"],"semantic_match":metrics["keyword_match"],"skills_match":metrics["skill_match"],"matched_skills":metrics["matched_skills"],"missing_skills":metrics["missing_skills"],"strengths":ai.get("strengths",[]),"risks":ai.get("weakEvidence",[]),"recommendations":ai.get("recommendations",[]),"recruiter_feedback":ai.get("summary",""),"feedback":ai.get("summary",""),"learning_plan":ai.get("recommendations",[]),"recommended_certifications":[],"tailored_resume":{"name":"Candidate","headline":role or "Target Role","summary":ai.get("summary",""),"skills":ai.get("matchedSkills",[]),"experience":[],"education":[],"projects":[],"certifications":[],"keywords":metrics["matched_skills"]},"company":company,"role":role,"shortlist":"NOT_A_DECISION","ai_insights":ai}
+    except Exception:
+        pass
+    try:
+        from ai import get_orchestrator
+        from ai.schemas import MODULE1_SCHEMA
         ai_result=get_orchestrator().generate_structured(
             user_id="module1", feature="module1_ats",
             task="Explain the deterministic ATS baseline, strengths, contextual matches, gaps, weak evidence and resume improvements. Never invent candidate facts.",
