@@ -4,6 +4,7 @@ from auth_routes import require_auth
 from auth_db import record_performance
 from module3_store import init_module3_db, create_session, get_session, save_session, latest_session
 from module3_evaluator import evaluate_code
+from module3_adaptive import initial_state, select_next_question, update_skill_state, record_code_signal
 
 module3 = Blueprint('module3', __name__, url_prefix='/api/module3')
 QUESTIONS = [
@@ -27,6 +28,9 @@ def _load(sid,user_id):
     try: return get_session(sid,user_id)
     except Exception: return None
 
+def _next(s):
+    return select_next_question(QUESTIONS, s)
+
 @module3.post('/start')
 def start():
     user,response=_auth()
@@ -35,10 +39,10 @@ def start():
     if not role:return jsonify({'error':'role_required'}),422
     init=_safe_init()
     if init:return init
-    state={'index':0,'events':[],'total':len(QUESTIONS)}
+    state=initial_state(len(QUESTIONS))
     try: sid=create_session(user['id'],role,state)
     except Exception:return jsonify({'error':'service_unavailable'}),503
-    return jsonify({'session':{'id':sid,'role':role,'progress':0,'total':len(QUESTIONS)},'question':QUESTIONS[0]}),201
+    return jsonify({'session':{'id':sid,'role':role,'progress':0,'total':len(QUESTIONS),'ability':state['ability'],'skill_scores':state['skill_scores']},'question':_next(state)}),201
 
 @module3.get('/resume')
 def resume():
@@ -47,8 +51,8 @@ def resume():
     try: init_module3_db(); s=latest_session(user['id'])
     except Exception:return jsonify({'error':'service_unavailable'}),503
     if not s:return jsonify({'error':'session_not_found'}),404
-    q=QUESTIONS[s['index']] if s['index']<len(QUESTIONS) else None
-    return jsonify({'session':{'id':s['id'],'role':s['role'],'progress':s['index'],'total':len(QUESTIONS),'completed':bool(s.get('completed_at'))},'question':q})
+    q=_next(s) if not s.get('completed_at') else None
+    return jsonify({'session':{'id':s['id'],'role':s['role'],'progress':len([e for e in s.get('events',[]) if e.get('question_id')]),'total':len(QUESTIONS),'completed':bool(s.get('completed_at')),'ability':s.get('ability',50.0),'skill_scores':s.get('skill_scores',{})},'question':q})
 
 @module3.get('/question')
 def question():
@@ -57,8 +61,7 @@ def question():
     sid=request.args.get('session_id'); s=_load(sid,user['id'])
     if not s:return jsonify({'error':'session_not_found'}),404
     if s.get('completed_at'):return jsonify({'error':'interview_complete'}),409
-    q=QUESTIONS[s['index']] if s['index']<len(QUESTIONS) else None
-    return jsonify({'question':q,'progress':s['index'],'total':len(QUESTIONS)})
+    return jsonify({'question':_next(s),'progress':len([e for e in s.get('events',[]) if e.get('question_id')]),'total':len(QUESTIONS),'ability':s.get('ability',50.0),'skill_scores':s.get('skill_scores',{})})
 
 @module3.post('/answer')
 def answer():
@@ -70,12 +73,13 @@ def answer():
     text=str(data.get('answer','')).strip()
     if not text:return jsonify({'error':'answer_required'}),422
     if len(text)>12000:return jsonify({'error':'answer_too_long'}),413
-    if s['index']>=len(QUESTIONS):return jsonify({'error':'interview_complete'}),409
-    q=QUESTIONS[s['index']]; result=score_answer(text)
-    s['events'].append({'question_id':q['id'],'answer':text,'evaluation':result}); s['index']+=1
+    q=_next(s)
+    if not q:return jsonify({'error':'interview_complete'}),409
+    result=score_answer(text); s['events'].append({'question_id':q['id'],'answer':text,'evaluation':result})
+    update_skill_state(s,q,result)
     try: save_session(sid,user['id'],s)
     except Exception:return jsonify({'error':'service_unavailable'}),503
-    return jsonify({'evaluation':result,'next':QUESTIONS[s['index']] if s['index']<len(QUESTIONS) else None,'progress':s['index'],'total':len(QUESTIONS)})
+    return jsonify({'evaluation':result,'next':_next(s),'progress':len([e for e in s['events'] if e.get('question_id')]),'total':len(QUESTIONS),'ability':s['ability'],'skill_scores':s['skill_scores']})
 
 @module3.post('/code/evaluate')
 def code_evaluate():
@@ -84,15 +88,15 @@ def code_evaluate():
     data=request.get_json(silent=True) or {}; sid=data.get('session_id'); s=_load(sid,user['id'])
     if not s:return jsonify({'error':'session_not_found'}),404
     if s.get('completed_at'):return jsonify({'error':'interview_complete'}),409
-    code=str(data.get('code',''))
-    if len(code)>16000:return jsonify({'error':'code_too_long'}),413
-    try: result=evaluate_code(code,data.get('language','python'),data.get('question',''))
+    data_code=str(data.get('code',''))
+    if len(data_code)>16000:return jsonify({'error':'code_too_long'}),413
+    try: result=evaluate_code(data_code,data.get('language','python'),data.get('question',''))
     except ValueError:return jsonify({'error':'code_required'}),422
     event={'type':'code_evaluation','language':str(data.get('language','python'))[:32],'evaluation':result}
-    s['events'].append(event)
+    s['events'].append(event); record_code_signal(s,result)
     try: save_session(sid,user['id'],s)
     except Exception:return jsonify({'error':'service_unavailable'}),503
-    return jsonify(result)
+    return jsonify({**result,'ability':s['ability'],'skill_scores':s['skill_scores']})
 
 @module3.post('/finish')
 def finish():
@@ -100,12 +104,13 @@ def finish():
     if response:return response
     data=request.get_json(silent=True) or {}; sid=data.get('session_id'); s=_load(sid,user['id'])
     if not s:return jsonify({'error':'session_not_found'}),404
+    answered=len([e for e in s.get('events',[]) if e.get('question_id')])
     if s.get('completed_at'):
         scores=[e['evaluation']['score'] for e in s['events'] if 'evaluation' in e]; score=round(sum(scores)/len(scores),1) if scores else 0
-        return jsonify({'score':score,'questions_answered':len([e for e in s['events'] if e.get('question_id')]),'completed':True})
-    if s['index']<len(QUESTIONS):return jsonify({'error':'interview_incomplete','remaining':len(QUESTIONS)-s['index']}),409
+        return jsonify({'score':score,'questions_answered':answered,'completed':True,'ability':s.get('ability',50.0),'skill_scores':s.get('skill_scores',{})})
+    if answered<len(QUESTIONS):return jsonify({'error':'interview_incomplete','remaining':len(QUESTIONS)-answered}),409
     scores=[e['evaluation']['score'] for e in s['events'] if 'evaluation' in e]; score=round(sum(scores)/len(scores),1) if scores else 0
-    result={'score':score,'questions_answered':len([e for e in s['events'] if e.get('question_id')]),'events':s['events']}
+    result={'score':score,'questions_answered':answered,'events':s['events'],'ability':s.get('ability',50.0),'skill_scores':s.get('skill_scores',{})}
     try:
         save_session(sid,user['id'],s,completed=True); record_performance(user['id'],'module3',score,result)
     except Exception:return jsonify({'error':'service_unavailable'}),503
