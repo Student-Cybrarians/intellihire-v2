@@ -14,5 +14,5 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt pytest
-      - run: python -m py_compile module1_ai.py auth_routes.py app.py career_intelligence.py career_twin_store.py research_engine.py research_retrieval.py research_store.py roadmap_engine.py roadmap_store.py module2_engine.py module2_store.py module2_routes.py module5_routes.py
+      - run: python -m py_compile module1_ai.py auth_routes.py app.py career_intelligence.py career_twin_store.py research_engine.py research_retrieval.py research_store.py roadmap_engine.py roadmap_store.py module2_engine.py module2_store.py module2_routes.py module3_store.py module3_routes.py module5_routes.py
       - run: PYTHONPATH=. pytest -q tests
