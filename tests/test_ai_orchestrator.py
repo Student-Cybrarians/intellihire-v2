@@ -2,7 +2,6 @@ import json
 import os
 import unittest
 from unittest.mock import patch
-
 from ai.orchestrator import AIOrchestrator, AIProviderError
 from ai.providers import AIResponse, DeepSeekProvider
 
@@ -10,8 +9,7 @@ class FakeProvider:
     name='fake'
     def __init__(self, content): self.content=content
     def generate(self,*args,**kwargs): return AIResponse(self.content,'fake','test-model','req-test',3,{'total_tokens':5},{})
-    def stream(self,*args,**kwargs):
-        yield 'hello'; yield ' world'
+    def stream(self,*args,**kwargs): yield 'hello'; yield ' world'
     def health(self): return {'provider':'fake','configured':True}
 
 class AIOrchestratorTests(unittest.TestCase):
@@ -31,4 +29,4 @@ class AIOrchestratorTests(unittest.TestCase):
 
 if __name__=='__main__': unittest.main()
 
-# Final full-suite diagnostics trigger.
+# Final verification trigger after deterministic research fallback fix.
