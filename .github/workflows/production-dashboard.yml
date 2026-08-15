@@ -1,30 +1,23 @@
-name: IntelliHire Vercel Production Smoke
+name: IntelliHire Production Smoke
 on:
-  push:
-    branches: [master-branch]
   workflow_dispatch:
-
+    inputs:
+      base_url:
+        description: 'Deployed IntelliHire URL to verify'
+        required: true
+        type: string
 jobs:
   production-smoke:
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for Vercel deployment
+      - name: Verify deployment
+        env:
+          BASE_URL: ${{ inputs.base_url }}
         run: |
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            code=$(curl -L -sS -o /tmp/home -w '%{http_code}' https://intellihire-v2.vercel.app/ || true)
-            echo "Production home HTTP: $code"
-            if [ "$code" = "200" ]; then
-              break
-            fi
-            sleep 20
-          done
-          test -s /tmp/home
-          grep -qi "INTELLIHIRE" /tmp/home
-      - name: Verify public pages
-        run: |
-          for path in /about /features /contact /pricing; do
-            code=$(curl -L -sS -o /tmp/page -w '%{http_code}' "https://intellihire-v2.vercel.app${path}" || true)
-            echo "${path} HTTP: $code"
+          BASE_URL="${BASE_URL%/}"
+          for path in / /about /features /contact /pricing /faq /courses /auth/google; do
+            code=$(curl -L -sS -o /tmp/page -w '%{http_code}' "$BASE_URL$path" || true)
+            echo "$path HTTP: $code"
             test "$code" = "200"
             grep -qi "INTELLIHIRE" /tmp/page
           done
