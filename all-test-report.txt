@@ -1,0 +1,37 @@
+......................................................................FF [ 92%]
+......                                                                   [100%]
+=================================== FAILURES ===================================
+__________________ test_synthesis_rejects_untrusted_citations __________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe8f1a97dd0>
+
+    def test_synthesis_rejects_untrusted_citations(monkeypatch):
+        monkeypatch.setenv('OPENAI_API_KEY','test-key')
+        monkeypatch.setattr(research_retrieval,'_chat',lambda *a,**k: json.dumps({'answer':'grounded','key_findings':[],'implications_for_candidate':[],'learning_actions':[],'citations':['https://evil.example/not-supplied']}))
+        result=research_retrieval.synthesize({'question':'q','sources':[{'title':'Trusted','url':'https://trusted.example/a','snippet':'evidence'}]})
+>       assert result['is_ai'] is True
+E       assert False is True
+
+tests/test_research_retrieval.py:27: AssertionError
+_____________________ test_synthesis_falls_back_without_ai _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe8f1a7f690>
+
+    def test_synthesis_falls_back_without_ai(monkeypatch):
+        monkeypatch.delenv('OPENAI_API_KEY',raising=False)
+        monkeypatch.delenv('NVIDIA_API_KEY',raising=False)
+        result=research_retrieval.synthesize({'question':'q','sources':[{'title':'Trusted','url':'https://trusted.example/a','snippet':'evidence'}],'claims':[{'evidence':'evidence','source_url':'https://trusted.example/a'}]})
+>       assert result['provider'] == 'deterministic-fallback'
+E       AssertionError: assert 'none' == 'deterministic-fallback'
+E         
+E         - deterministic-fallback
+E         + none
+
+tests/test_research_retrieval.py:35: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_research_retrieval.py::test_synthesis_rejects_untrusted_citations - assert False is True
+FAILED tests/test_research_retrieval.py::test_synthesis_falls_back_without_ai - AssertionError: assert 'none' == 'deterministic-fallback'
+  
+  - deterministic-fallback
+  + none
+2 failed, 76 passed in 2.55s
