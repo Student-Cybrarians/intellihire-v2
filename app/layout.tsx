@@ -85,7 +85,6 @@ const structuredData = {
       url: siteUrl,
       description:
         'AI-based placement trainer covering resume intelligence, adaptive assessment, technical interviews, HR preparation, and hiring readiness.',
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR' },
     },
   ],
 };
