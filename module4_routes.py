@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, request
 from module4_liftoff import start, question, answer, finish
+from module4_competency import aggregate
+from module4_competency_store import get_competencies, save_competencies
 from module5_engine import evaluate as evaluate_module5
 from auth_routes import require_auth
 from auth_db import record_performance
@@ -17,6 +19,9 @@ def _session_id():
 
 def _owned_session(sid, user):
     return get_session(user['id'], sid) if sid else None
+
+def _competency_report(state):
+    return aggregate(state.get('events', []))
 
 @module4.post('/start')
 def start_route():
@@ -69,13 +74,16 @@ def finish_route():
     if response:return response
     state=_owned_session(_session_id(),user)
     if not state:return jsonify({'error':'session_not_found'}),404
-    if state['status']=='COMPLETED':return jsonify(finish(state))
+    if state['status']=='COMPLETED':
+        return jsonify({**finish(state),'competencies':_competency_report(state)})
     result=finish(state)
+    competencies=_competency_report(state)
     try:
         save_session(user['id'],state)
-        record_performance(user['id'],'module4',result.get('score',0),result)
+        record_performance(user['id'],'module4',result.get('score',0),{**result,'competencies':competencies})
+        save_competencies(user['id'],competencies)
     except Exception:return jsonify({'error':'result_persistence_unavailable'}),503
-    return jsonify(result)
+    return jsonify({**result,'competencies':competencies})
 
 @module4.get('/report/<session_id>')
 def report(session_id):
@@ -83,7 +91,18 @@ def report(session_id):
     if response:return response
     state=_owned_session(session_id,user)
     if not state:return jsonify({'error':'session_not_found'}),404
-    return jsonify(finish(state))
+    return jsonify({**finish(state),'competencies':_competency_report(state)})
+
+@module4.get('/competencies')
+def competencies_route():
+    user,response=_auth_user()
+    if response:return response
+    try:
+        payload=get_competencies(user['id'])
+        if payload:return jsonify(payload)
+        sessions=list_sessions(user['id'])
+        return jsonify(aggregate([]) if not sessions else {'dimensions':{},'strengths':[],'development_areas':[],'evidence':{},'integrity':{'candidate_evidence_only':True,'fabrication':False}})
+    except Exception:return jsonify({'error':'competencies_unavailable'}),503
 
 @module4.get('/history')
 def history():
@@ -113,4 +132,5 @@ def handoff(session_id):
     state=_owned_session(session_id,user)
     if not state:return jsonify({'error':'session_not_found'}),404
     report_data=finish(state)
-    return jsonify({'module4_report':report_data,'module5':evaluate_module5({'Module 4':report_data.get('score',0)})})
+    competencies=_competency_report(state)
+    return jsonify({'module4_report':report_data,'competencies':competencies,'module5':evaluate_module5({'Module 4':report_data.get('score',0)})})
