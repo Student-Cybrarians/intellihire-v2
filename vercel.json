@@ -1,18 +1,19 @@
 {
+  "version": 2,
   "builds": [
+    {"src": "package.json", "use": "@vercel/next"},
     {"src": "api/index.py", "use": "@vercel/python"}
   ],
-  "routes": [
-    {"src": "/static/(.*)", "dest": "/static/$1"},
-    {"src": "/favicon.ico", "dest": "/static/favicon.ico"},
-    {"src": "/(.*)", "dest": "api/index.py"}
+  "rewrites": [
+    {"source": "/api/:path*", "destination": "/api/index.py"},
+    {"source": "/auth/:path*", "destination": "/api/index.py"},
+    {"source": "/admin/:path*", "destination": "/api/index.py"},
+    {"source": "/app/:path*", "destination": "/api/index.py"}
   ],
   "headers": [
     {
       "source": "/static/(.*)",
-      "headers": [
-        {"key": "Cache-Control", "value": "public, max-age=31536000, immutable"}
-      ]
+      "headers": [{"key":"Cache-Control","value":"public, max-age=31536000, immutable"}]
     }
   ]
 }
