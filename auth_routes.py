@@ -4,6 +4,7 @@ from flask import Blueprint, abort, redirect, request, jsonify, make_response, s
 from auth_db import get_or_create_google_user, create_session, get_session, revoke_session, audit, record_performance
 from module1_ai import analyze_with_ai, resume_docx_bytes, resume_pdf_bytes, resume_csv_bytes
 from ml_engine import build_career_context, career_gap_analysis, research_plan
+from chat_routes import support
 
 try:
     import requests
@@ -17,6 +18,7 @@ except ImportError:
     google_requests = None
 
 auth = Blueprint('auth', __name__, url_prefix='/auth')
+auth.register_blueprint(support)
 OAUTH_STATE_COOKIE = 'intellihire_oauth_state'
 OAUTH_NONCE_COOKIE = 'intellihire_oauth_nonce'
 SESSION_COOKIE = 'intellihire_session'
@@ -195,4 +197,4 @@ def module1_export(fmt):
             return send_file(BytesIO(resume_csv_bytes(resume)), as_attachment=True, download_name='intellihire_ats_resume.csv', mimetype='text/csv')
     except Exception as exc:
         return jsonify({'error': 'resume_export_failed', 'detail': str(exc)}), 500
-    return jsonify({'error': 'unsupported_export_format', 'supported': ['docx', 'pdf', 'csv']}), 415
+    return jsonify({'error': 'unsupported_export_format', 'supported': ['docx', 'pdf', 'csv']})
