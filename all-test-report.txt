@@ -1,3 +1,23 @@
-........................................................................ [ 85%]
-............                                                             [100%]
-84 passed in 2.12s
+.............F.......................F.................................. [ 84%]
+.............                                                            [100%]
+=================================== FAILURES ===================================
+___________ test_vercel_routes_cover_public_and_application_surfaces ___________
+
+    def test_vercel_routes_cover_public_and_application_surfaces():
+        config = json.loads(Path("vercel.json").read_text(encoding="utf-8"))
+>       rewrites = {item["source"]: item["destination"] for item in config["rewrites"]}
+                                                                    ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'rewrites'
+
+tests/test_deployment_smoke.py:44: KeyError
+___________ test_parse_answer_rejects_missing_and_non_numeric_values ___________
+
+    def test_parse_answer_rejects_missing_and_non_numeric_values():
+>       with pytest.raises(ValueError, match='invalid_answer'):
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_module2_persistence.py:40: Failed
+=========================== short test summary info ============================
+FAILED tests/test_deployment_smoke.py::test_vercel_routes_cover_public_and_application_surfaces - KeyError: 'rewrites'
+FAILED tests/test_module2_persistence.py::test_parse_answer_rejects_missing_and_non_numeric_values - Failed: DID NOT RAISE ValueError
+2 failed, 83 passed in 2.36s
