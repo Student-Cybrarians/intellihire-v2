@@ -4,6 +4,12 @@
     {"src": "api/index.py", "use": "@vercel/python"}
   ],
   "rewrites": [
+    {"source": "/", "destination": "/api/index.py"},
+    {"source": "/about", "destination": "/api/index.py"},
+    {"source": "/how-it-works", "destination": "/api/index.py"},
+    {"source": "/features", "destination": "/api/index.py"},
+    {"source": "/pricing", "destination": "/api/index.py"},
+    {"source": "/contact", "destination": "/api/index.py"},
     {"source": "/api/:path*", "destination": "/api/index.py"},
     {"source": "/auth", "destination": "/api/index.py"},
     {"source": "/auth/:path*", "destination": "/api/index.py"},
