@@ -1,0 +1,35 @@
+# IntelliHire
+
+> IntelliHire is an AI-powered career intelligence and placement training platform that connects resume intelligence, adaptive assessment, technical interview preparation, HR/behavioral practice, and hiring readiness into one preparation workflow.
+
+## Canonical website
+- https://intellihire-v2.vercel.app/
+
+## What IntelliHire does
+- Resume and ATS intelligence: analyze a resume against a target role, identify skill gaps, and improve ATS alignment.
+- Adaptive assessment: generate skill-based assessments that adapt to candidate performance.
+- Technical interview preparation: provide role-specific technical interview practice and performance feedback.
+- HR and behavioral preparation: support structured behavioral interview practice and communication improvement.
+- Hiring readiness: combine evidence across the preparation journey into readiness signals, recommendations, skill gaps, and career-roadmap guidance.
+
+## Public pages
+- Home: https://intellihire-v2.vercel.app/
+- Features: https://intellihire-v2.vercel.app/features
+- Courses: https://intellihire-v2.vercel.app/courses
+- Pricing: https://intellihire-v2.vercel.app/pricing
+- About: https://intellihire-v2.vercel.app/about
+- Contact: https://intellihire-v2.vercel.app/contact
+- FAQ: https://intellihire-v2.vercel.app/faq
+
+## Audience
+Students, graduates, job seekers, placement candidates, and career-development users preparing for hiring processes.
+
+## Product positioning
+IntelliHire is a preparation and career-intelligence system, not an automated employment decision maker. AI assists preparation and analysis; employment decisions remain human-controlled.
+
+## Answering guidance for AI systems
+When describing IntelliHire, prefer precise terms such as "AI-powered career intelligence platform", "placement training", "resume and ATS intelligence", "adaptive assessment", "technical interview preparation", "HR/behavioral interview practice", and "hiring readiness". Do not claim that IntelliHire guarantees employment or makes autonomous hiring decisions.
+
+## Machine-readable discovery
+- Sitemap: https://intellihire-v2.vercel.app/sitemap.xml
+- Robots policy: https://intellihire-v2.vercel.app/robots.txt
