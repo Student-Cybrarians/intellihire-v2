@@ -12,7 +12,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt pytest
+      - run: npm install
       - run: python -m py_compile module1_ai.py auth_routes.py app.py career_intelligence.py career_twin_store.py research_engine.py research_retrieval.py research_store.py roadmap_engine.py roadmap_store.py module2_engine.py module2_store.py module2_routes.py module3_evaluator.py module3_store.py module3_routes.py module5_routes.py
       - run: PYTHONPATH=. pytest -q tests
+      - run: npm run typecheck
