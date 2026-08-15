@@ -2,6 +2,27 @@
 
 IntelliHire is an AI-based placement and career-intelligence platform built around resume intelligence, adaptive assessment, technical interview practice, HR interview coaching, and candidate readiness.
 
+## Repository architecture
+
+The repository now exposes explicit backend boundaries while preserving the tested runtime implementations during the migration:
+
+```text
+app/                    Next.js presentation layer
+backend/
+  ai/                   shared AI orchestration boundary
+  auth/                 authentication and persistence boundary
+  core/                 application/deployment boundary
+  intelligence/         career, ML, roadmap, and skill intelligence
+  modules/              Module 1–5 domain boundaries
+  research/             research context, retrieval, engine, storage
+prompts/                versioned module/research prompts
+tests/                  regression and integration tests
+scripts/                automation and migration tooling
+docs/architecture/      architecture decisions and target layout
+```
+
+The Python implementation remains at the repository root temporarily as a compatibility layer. New backend code should import through `backend.*`. The next cleanup phase can remove the root modules once all runtime and test imports have been migrated.
+
 ## Current live architecture
 
 - Flask application with authenticated USER / ADMIN flows
@@ -38,7 +59,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Production uses the configured Gunicorn/Vercel deployment path.
+Production uses the configured Gunicorn/Vercel deployment path. The Vercel entrypoint now resolves through `backend.core`.
 
 ## Module 1
 
