@@ -5,7 +5,7 @@ import os
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List
 
 import requests
 
@@ -15,6 +15,11 @@ class AIProviderError(RuntimeError):
 
 
 class AIUnavailableError(AIProviderError):
+    pass
+
+
+class AIProviderTimeoutError(AIProviderError):
+    """Raised when a provider does not respond within the configured timeout."""
     pass
 
 
@@ -46,14 +51,17 @@ class AIProvider:
         return {"provider": self.name, "configured": False}
 
 
-class DeepSeekProvider(AIProvider):
-    name = "deepseek"
+class OpenAICompatibleProvider(AIProvider):
+    """Small requests-based adapter for OpenAI-compatible chat APIs."""
+
+    api_key_env = ""
+    model_env = ""
+    default_base_url = ""
 
     def __init__(self) -> None:
-        self.api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
-        self.base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
-        self.default_model = os.getenv("DEEPSEEK_MODEL", "").strip()
-        self.timeout = float(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "30"))
+        self.api_key = os.getenv(self.api_key_env, "").strip()
+        self.base_url = os.getenv(f"{self.name.upper()}_BASE_URL", self.default_base_url).rstrip("/")
+        self.default_model = os.getenv(self.model_env, "").strip()
 
     @property
     def endpoint(self) -> str:
@@ -61,8 +69,7 @@ class DeepSeekProvider(AIProvider):
 
     def _payload(self, messages, model, tools, response_format, temperature, max_tokens, stream, reasoning):
         if not model:
-            raise AIUnavailableError("DEEPSEEK_MODEL is not configured")
-        # Keep the stable prefix deterministic; volatile user context belongs in later messages.
+            raise AIUnavailableError(f"{self.model_env} is not configured")
         payload = {
             "model": model,
             "messages": messages,
@@ -74,7 +81,6 @@ class DeepSeekProvider(AIProvider):
             payload["tools"] = tools
         if response_format:
             payload["response_format"] = response_format
-        # DeepSeek-compatible endpoints vary in their reasoning flag. Only send it when explicitly enabled.
         if reasoning:
             payload["thinking"] = {"type": "enabled"}
         return payload
@@ -82,7 +88,7 @@ class DeepSeekProvider(AIProvider):
     def generate(self, messages, *, model, tools=None, response_format=None,
                  temperature=0.2, max_tokens=2048, timeout=30, reasoning=False):
         if not self.api_key:
-            raise AIUnavailableError("DEEPSEEK_API_KEY is not configured")
+            raise AIUnavailableError(f"{self.api_key_env} is not configured")
         request_id = str(uuid.uuid4())
         started = time.monotonic()
         payload = self._payload(messages, model or self.default_model, tools, response_format,
@@ -92,17 +98,14 @@ class DeepSeekProvider(AIProvider):
                 self.endpoint,
                 headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
                 json=payload,
-                timeout=max(1.0, timeout or self.timeout),
+                timeout=max(1.0, timeout),
             )
             response.raise_for_status()
             body = response.json()
             choice = (body.get("choices") or [{}])[0]
             message = choice.get("message") or {}
-            content = message.get("content") or ""
-            if not content and choice.get("finish_reason") == "tool_calls":
-                content = ""
             return AIResponse(
-                content=content,
+                content=message.get("content") or "",
                 provider=self.name,
                 model=str(body.get("model") or model or self.default_model),
                 request_id=request_id,
@@ -110,15 +113,17 @@ class DeepSeekProvider(AIProvider):
                 usage=body.get("usage") or {},
                 raw=body,
             )
+        except requests.Timeout as exc:
+            raise AIProviderTimeoutError(f"{self.name} timed out after {timeout}s") from exc
         except requests.RequestException as exc:
-            raise AIProviderError(f"DeepSeek request failed: {type(exc).__name__}: {exc}") from exc
+            raise AIProviderError(f"{self.name} request failed: {type(exc).__name__}: {exc}") from exc
         except (ValueError, KeyError, TypeError) as exc:
-            raise AIProviderError(f"DeepSeek returned an invalid response: {type(exc).__name__}") from exc
+            raise AIProviderError(f"{self.name} returned an invalid response: {type(exc).__name__}") from exc
 
     def stream(self, messages, *, model, tools=None, temperature=0.2, max_tokens=2048,
                timeout=60, reasoning=False):
         if not self.api_key:
-            raise AIUnavailableError("DEEPSEEK_API_KEY is not configured")
+            raise AIUnavailableError(f"{self.api_key_env} is not configured")
         payload = self._payload(messages, model or self.default_model, tools, None,
                                 temperature, max_tokens, True, reasoning)
         try:
@@ -126,7 +131,7 @@ class DeepSeekProvider(AIProvider):
                 self.endpoint,
                 headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
                 json=payload,
-                timeout=max(1.0, timeout or self.timeout),
+                timeout=(min(10.0, max(1.0, timeout)), max(1.0, timeout)),
                 stream=True,
             ) as response:
                 response.raise_for_status()
@@ -149,8 +154,10 @@ class DeepSeekProvider(AIProvider):
                     content = delta.get("content")
                     if content:
                         yield str(content)
+        except requests.Timeout as exc:
+            raise AIProviderTimeoutError(f"{self.name} stream timed out after {timeout}s") from exc
         except requests.RequestException as exc:
-            raise AIProviderError(f"DeepSeek stream failed: {type(exc).__name__}: {exc}") from exc
+            raise AIProviderError(f"{self.name} stream failed: {type(exc).__name__}: {exc}") from exc
 
     def health(self):
         return {
@@ -161,17 +168,37 @@ class DeepSeekProvider(AIProvider):
         }
 
 
-class DeepSeekHarnessAdapter(DeepSeekProvider):
-    """Isolation point for a verified deepseek-harness implementation.
+class DeepSeekProvider(OpenAICompatibleProvider):
+    name = "deepseek"
+    api_key_env = "DEEPSEEK_API_KEY"
+    model_env = "DEEPSEEK_MODEL"
+    default_base_url = "https://api.deepseek.com"
 
-    The requested deepseek-ai/deepseek-harness repository could not be verified.
-    This adapter therefore does not import or silently substitute another harness.
-    It delegates to the official OpenAI-compatible DeepSeek transport until a
-    verified harness is explicitly configured.
-    """
+
+class OpenAIProvider(OpenAICompatibleProvider):
+    name = "openai"
+    api_key_env = "OPENAI_API_KEY"
+    model_env = "OPENAI_MODEL"
+    default_base_url = "https://api.openai.com/v1"
+
+
+class NvidiaProvider(OpenAICompatibleProvider):
+    name = "nvidia"
+    api_key_env = "NVIDIA_API_KEY"
+    model_env = "NVIDIA_MODEL"
+    default_base_url = "https://integrate.api.nvidia.com/v1"
+
+
+class DeepSeekHarnessAdapter(DeepSeekProvider):
+    """Isolation point for a verified deepseek-harness implementation."""
     name = "deepseek-harness-adapter"
 
 
 def build_provider_chain() -> Dict[str, AIProvider]:
-    providers: Dict[str, AIProvider] = {"deepseek": DeepSeekProvider()}
-    return providers
+    # Providers are instantiated once; the orchestrator decides which configured
+    # provider gets the request. No browser-visible API keys are used.
+    return {
+        "deepseek": DeepSeekProvider(),
+        "openai": OpenAIProvider(),
+        "nvidia": NvidiaProvider(),
+    }
