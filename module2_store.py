@@ -1,6 +1,5 @@
 import json
 import uuid
-from datetime import datetime, timezone
 from auth_db import db_connect
 
 SCHEMA = """
@@ -45,6 +44,16 @@ def create_assessment(user_id, section='', target_questions=8):
             )
     return get_assessment(user_id, str(assessment_id))
 
+def _row_to_assessment(row):
+    return {
+        'id': str(row[0]), 'section': row[1], 'target_questions': row[2],
+        'ability': float(row[3]), 'answered_ids': _decode(row[4]) or [],
+        'events': _decode(row[5]) or [], 'status': row[6],
+        'created_at': row[7].isoformat() if row[7] else None,
+        'updated_at': row[8].isoformat() if row[8] else None,
+        'completed_at': row[9].isoformat() if row[9] else None,
+    }
+
 def get_assessment(user_id, assessment_id):
     try:
         aid = uuid.UUID(str(assessment_id))
@@ -57,43 +66,49 @@ def get_assessment(user_id, assessment_id):
                 (aid, user_id),
             )
             row = cur.fetchone()
-    if not row:
-        return None
-    return {
-        'id': str(row[0]), 'section': row[1], 'target_questions': row[2],
-        'ability': float(row[3]), 'answered_ids': _decode(row[4]) or [],
-        'events': _decode(row[5]) or [], 'status': row[6],
-        'created_at': row[7].isoformat() if row[7] else None,
-        'updated_at': row[8].isoformat() if row[8] else None,
-        'completed_at': row[9].isoformat() if row[9] else None,
-    }
+    return _row_to_assessment(row) if row else None
 
 def save_answer(user_id, assessment_id, event):
-    assessment = get_assessment(user_id, assessment_id)
-    if not assessment:
+    try:
+        aid = uuid.UUID(str(assessment_id))
+    except (ValueError, TypeError):
         raise LookupError('assessment_not_found')
-    if assessment['status'] != 'ACTIVE':
-        raise ValueError('assessment_not_active')
     qid = event.get('question', {}).get('id')
-    if not qid or qid in assessment['answered_ids']:
-        raise ValueError('question_already_answered')
-    answered = assessment['answered_ids'] + [qid]
-    events = assessment['events'] + [event]
-    ability = float(event.get('ability_after', assessment['ability']))
-    completed = len(events) >= assessment['target_questions']
-    status = 'COMPLETED' if completed else 'ACTIVE'
+    if not qid:
+        raise ValueError('invalid_event')
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE module2_assessments SET ability=%s,answered_ids=%s,events=%s,status=%s,updated_at=NOW(),completed_at=CASE WHEN %s THEN NOW() ELSE completed_at END WHERE id=%s AND user_id=%s AND status='ACTIVE'",
-                (ability, json.dumps(answered), json.dumps(events), status, completed, uuid.UUID(str(assessment_id)), user_id),
+                "SELECT id,section,target_questions,ability,answered_ids,events,status,created_at,updated_at,completed_at FROM module2_assessments WHERE id=%s AND user_id=%s FOR UPDATE",
+                (aid, user_id),
             )
-    return get_assessment(user_id, assessment_id)
+            row = cur.fetchone()
+            if not row:
+                raise LookupError('assessment_not_found')
+            assessment = _row_to_assessment(row)
+            if assessment['status'] != 'ACTIVE':
+                raise ValueError('assessment_not_active')
+            if qid in assessment['answered_ids']:
+                raise ValueError('question_already_answered')
+            answered = assessment['answered_ids'] + [qid]
+            events = assessment['events'] + [event]
+            ability = float(event.get('ability_after', assessment['ability']))
+            completed = len(events) >= assessment['target_questions']
+            status = 'COMPLETED' if completed else 'ACTIVE'
+            cur.execute(
+                "UPDATE module2_assessments SET ability=%s,answered_ids=%s,events=%s,status=%s,updated_at=NOW(),completed_at=CASE WHEN %s THEN NOW() ELSE completed_at END WHERE id=%s AND user_id=%s",
+                (ability, json.dumps(answered), json.dumps(events), status, completed, aid, user_id),
+            )
+    return get_assessment(user_id, str(aid))
 
 def abandon_assessment(user_id, assessment_id):
+    try:
+        aid = uuid.UUID(str(assessment_id))
+    except (ValueError, TypeError):
+        raise ValueError('assessment_not_found')
     with db_connect() as conn:
         with conn.cursor() as cur:
-            cur.execute("UPDATE module2_assessments SET status='ABANDONED',updated_at=NOW() WHERE id=%s AND user_id=%s AND status='ACTIVE'", (uuid.UUID(str(assessment_id)), user_id))
+            cur.execute("UPDATE module2_assessments SET status='ABANDONED',updated_at=NOW() WHERE id=%s AND user_id=%s AND status='ACTIVE'", (aid, user_id))
     return get_assessment(user_id, assessment_id)
 
 def latest_assessment(user_id):
