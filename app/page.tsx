@@ -1,0 +1,11 @@
+import Link from 'next/link';
+import MarketingShell from './marketing/MarketingShell';
+import styles from './marketing/marketing.module.css';
+
+export default function Home() { return <MarketingShell>
+  <section className={styles.hero}>
+    <div><span className={styles.eyebrow}>AI-POWERED PLACEMENT TRAINER</span><h1>Train smarter.<br/><em>Interview better.</em><br/>Get hired.</h1><p>IntelliHire turns one job target into a guided preparation journey — ATS resume intelligence, adaptive assessments, technical interviews, HR practice and measurable career readiness.</p><div className={styles.actions}><Link className={styles.primary} href="/auth/google">Start your journey →</Link><Link className={styles.secondary} href="/features">Explore IntelliHire</Link></div></div>
+    <div className={styles.heroCard}><div className={styles.mockTop}><b>CAREER READINESS</b><span>● LIVE PROFILE</span></div><div className={styles.mockScore}><small>OVERALL READINESS</small><strong>87%</strong><div>Strong foundation · 3 priority skill gaps</div></div><div className={styles.mockGrid}><div className={styles.mockItem}><b>Module 01</b><small>ATS Intelligence · 92</small></div><div className={styles.mockItem}><b>Module 02</b><small>Adaptive Assessment · 84</small></div><div className={styles.mockItem}><b>Module 03</b><small>Technical Interview · 91</small></div><div className={styles.mockItem}><b>Module 04</b><small>HR & Behavioral · 87</small></div></div></div>
+  </section>
+  <section className={styles.section}><div className={styles.sectionHead}><span>ONE CONTINUOUS JOURNEY</span><h2>Everything you need between “I applied” and “I’m ready.”</h2><p>Keep your evidence, practice history and next actions connected to the role you actually want.</p></div><div className={styles.cards}>{[['01','Resume intelligence','Match your resume to the company JD, identify gaps and generate an ATS-friendly version.'],['02','Adaptive assessment','Measure ability with questions that respond to your performance instead of repeating a fixed quiz.'],['03','Interview readiness','Practice technical and behavioral interviews, review evidence and build confidence before the real conversation.']].map(x=><article className={styles.feature} key={x[0]}><span className={styles.icon}>{x[0]}</span><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div></section>
+</MarketingShell> }
