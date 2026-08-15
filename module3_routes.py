@@ -3,6 +3,7 @@ import re
 from auth_routes import require_auth
 from auth_db import record_performance
 from module3_store import init_module3_db, create_session, get_session, save_session, latest_session
+from module3_evaluator import evaluate_code
 
 module3 = Blueprint('module3', __name__, url_prefix='/api/module3')
 QUESTIONS = [
@@ -19,11 +20,9 @@ def score_answer(text):
     return {'score':quality,'accuracy':quality,'communication':min(100,50+n*2),'concept_hits':hits}
 
 def _auth(): return require_auth('USER')
-
 def _safe_init():
     try: init_module3_db(); return None
     except Exception: return jsonify({'error':'service_unavailable'}),503
-
 def _load(sid,user_id):
     try: return get_session(sid,user_id)
     except Exception: return None
@@ -32,8 +31,7 @@ def _load(sid,user_id):
 def start():
     user,response=_auth()
     if response:return response
-    data=request.get_json(silent=True) or {}
-    role=str(data.get('role','Software Engineer')).strip()[:120]
+    data=request.get_json(silent=True) or {}; role=str(data.get('role','Software Engineer')).strip()[:120]
     if not role:return jsonify({'error':'role_required'}),422
     init=_safe_init()
     if init:return init
@@ -79,6 +77,23 @@ def answer():
     except Exception:return jsonify({'error':'service_unavailable'}),503
     return jsonify({'evaluation':result,'next':QUESTIONS[s['index']] if s['index']<len(QUESTIONS) else None,'progress':s['index'],'total':len(QUESTIONS)})
 
+@module3.post('/code/evaluate')
+def code_evaluate():
+    user,response=_auth()
+    if response:return response
+    data=request.get_json(silent=True) or {}; sid=data.get('session_id'); s=_load(sid,user['id'])
+    if not s:return jsonify({'error':'session_not_found'}),404
+    if s.get('completed_at'):return jsonify({'error':'interview_complete'}),409
+    code=str(data.get('code',''))
+    if len(code)>16000:return jsonify({'error':'code_too_long'}),413
+    try: result=evaluate_code(code,data.get('language','python'),data.get('question',''))
+    except ValueError:return jsonify({'error':'code_required'}),422
+    event={'type':'code_evaluation','language':str(data.get('language','python'))[:32],'evaluation':result}
+    s['events'].append(event)
+    try: save_session(sid,user['id'],s)
+    except Exception:return jsonify({'error':'service_unavailable'}),503
+    return jsonify(result)
+
 @module3.post('/finish')
 def finish():
     user,response=_auth()
@@ -86,13 +101,12 @@ def finish():
     data=request.get_json(silent=True) or {}; sid=data.get('session_id'); s=_load(sid,user['id'])
     if not s:return jsonify({'error':'session_not_found'}),404
     if s.get('completed_at'):
-        scores=[e['evaluation']['score'] for e in s['events']]; score=round(sum(scores)/len(scores),1) if scores else 0
-        return jsonify({'score':score,'questions_answered':len(scores),'completed':True})
+        scores=[e['evaluation']['score'] for e in s['events'] if 'evaluation' in e]; score=round(sum(scores)/len(scores),1) if scores else 0
+        return jsonify({'score':score,'questions_answered':len([e for e in s['events'] if e.get('question_id')]),'completed':True})
     if s['index']<len(QUESTIONS):return jsonify({'error':'interview_incomplete','remaining':len(QUESTIONS)-s['index']}),409
-    scores=[e['evaluation']['score'] for e in s['events']]; score=round(sum(scores)/len(scores),1) if scores else 0
-    result={'score':score,'questions_answered':len(scores),'events':s['events']}
+    scores=[e['evaluation']['score'] for e in s['events'] if 'evaluation' in e]; score=round(sum(scores)/len(scores),1) if scores else 0
+    result={'score':score,'questions_answered':len([e for e in s['events'] if e.get('question_id')]),'events':s['events']}
     try:
-        save_session(sid,user['id'],s,completed=True)
-        record_performance(user['id'],'module3',score,result)
+        save_session(sid,user['id'],s,completed=True); record_performance(user['id'],'module3',score,result)
     except Exception:return jsonify({'error':'service_unavailable'}),503
     return jsonify({**result,'completed':True})
