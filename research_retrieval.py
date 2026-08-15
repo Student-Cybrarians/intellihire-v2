@@ -3,7 +3,7 @@
 Retrieval uses a configured Tavily key when available. Synthesis uses the same
 OpenAI/NVIDIA provider family as Module 1. If either service is unavailable,
 the engine returns a deterministic, citation-preserving brief rather than
-inventing evidence.
+inventing evidence. Career Twin context is bounded and evidence-state aware.
 """
 from __future__ import annotations
 import json
@@ -11,9 +11,10 @@ import os
 import time
 import requests
 from research_engine import build_research_brief
+from research_context import build_context
 
 
-def retrieve(question, twin=None, max_results=6, timeout=None):
+def retrieve(question, twin=None, context=None, max_results=6, timeout=None):
     question=str(question or '').strip()
     if not question:
         raise ValueError('research_question_required')
@@ -25,6 +26,14 @@ def retrieve(question, twin=None, max_results=6, timeout=None):
     gaps=(twin or {}).get('skill_gaps',[]) if isinstance(twin,dict) else []
     if gaps:
         query += ' | skill gaps: ' + ', '.join(map(str,gaps[:8]))
+    if isinstance(context,dict):
+        graph=context.get('skill_graph',[])
+        evidenced=[x.get('skill') for x in graph if isinstance(x,dict) and x.get('state')=='evidenced'][:8]
+        target=context.get('role','')
+        if target:
+            query += ' | target role: ' + str(target)
+        if evidenced:
+            query += ' | evidenced skills: ' + ', '.join(map(str,evidenced))
     response=requests.post(
         os.getenv('TAVILY_API_URL','https://api.tavily.com/search'),
         json={'api_key':key,'query':query,'search_depth':os.getenv('TAVILY_SEARCH_DEPTH','advanced'),'max_results':max(1,min(int(max_results),10)),'include_answer':False,'include_raw_content':False},
@@ -55,15 +64,17 @@ def _json(text):
     return json.loads(text)
 
 
-def synthesize(brief, timeout=None):
+def synthesize(brief, context=None, timeout=None):
     sources=brief.get('sources',[])
     if not sources:
         return {'provider':'deterministic-fallback','is_ai':False,'synthesis_status':'no_evidence','answer':'No live evidence was retrieved. Configure TAVILY_API_KEY or provide source records before relying on this research.','key_findings':[],'citations':[]}
     system=('You are IntelliHire Personal AI Research Intern. Synthesize ONLY from the supplied evidence. '
+            'The candidate context is personalization context, not evidence. Never present a skill gap, transferable skill, roadmap item, or inferred competency as candidate experience. '
             'Do not invent facts, URLs, quotations, employers, skills, or claims. Every factual finding must cite one or more supplied source URLs. '
             'Return JSON with keys answer, key_findings, implications_for_candidate, learning_actions, citations. citations must contain only supplied URLs.')
     evidence='\n\n'.join(f"SOURCE {i+1}: {s['title']}\nURL: {s['url']}\nEVIDENCE: {s.get('snippet','')}" for i,s in enumerate(sources))
-    prompt=f"Research question: {brief['question']}\n\nEvidence:\n{evidence}"
+    context_text=(context or {}).get('context_text','') if isinstance(context,dict) else ''
+    prompt=f"Research question: {brief['question']}\n\nCandidate context (personalization only; not evidence):\n{context_text}\n\nEvidence:\n{evidence}"
     providers=[]
     if os.getenv('OPENAI_API_KEY'):
         providers.append((os.getenv('OPENAI_BASE_URL','https://api.openai.com/v1/chat/completions'),os.getenv('OPENAI_MODEL','gpt-5-mini'),os.getenv('OPENAI_API_KEY'),'openai'))
@@ -83,14 +94,15 @@ def synthesize(brief, timeout=None):
     return {'provider':'deterministic-fallback','model':None,'is_ai':False,'synthesis_status':'evidence_only','answer':'Evidence was retrieved, but the configured synthesis provider was unavailable. Review the cited evidence directly.','key_findings':[{'finding':c['evidence'],'citation':c['source_url']} for c in brief.get('claims',[])],'implications_for_candidate':[],'learning_actions':[],'citations':[s['url'] for s in sources],'ai_error':last}
 
 
-def run_research(twin, question, supplied_sources=None, max_results=6):
+def run_research(twin, question, supplied_sources=None, max_results=6, skill_graph=None, behavioral=None, roadmap=None):
     supplied=supplied_sources if isinstance(supplied_sources,list) else []
+    context=build_context(twin, skill_graph, behavioral, roadmap)
     status='supplied'
     if not supplied:
         try:
-            supplied,status=retrieve(question,twin,max_results=max_results)
+            supplied,status=retrieve(question,twin,context.get('context'),max_results=max_results)
         except (requests.RequestException,ValueError) as exc:
             supplied=[]; status=f'retrieval_unavailable:{type(exc).__name__}'
     brief=build_research_brief(twin or {},question,supplied,max_results)
-    synthesis=synthesize(brief)
-    return {**brief,'retrieval_status':status,'synthesis':synthesis,'integrity':{'fabricated_sources':False,'fabricated_claims':not synthesis.get('is_ai',False)}}
+    synthesis=synthesize(brief,context)
+    return {**brief,'retrieval_status':status,'context':context,'synthesis':synthesis,'integrity':{'fabricated_sources':False,'fabricated_claims':not synthesis.get('is_ai',False)}}
