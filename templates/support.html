@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Support · IntelliHire</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.1.0/dist/css/adminlte.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+</head>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+<div class="app-wrapper">
+  <nav class="app-header navbar navbar-expand bg-body"><div class="container-fluid"><a class="navbar-brand fw-bold" href="/app/dashboard">✦ IntelliHire</a><div class="ms-auto"><span class="me-3">{{ user.name or user.email }}</span><a class="btn btn-outline-secondary btn-sm" href="/auth/logout">Sign out</a></div></div></nav>
+  <main class="app-main"><div class="app-content p-3 p-lg-4"><div class="container-fluid">
+    <div class="row g-3">
+      <div class="col-lg-4">
+        <div class="card card-primary card-outline h-100"><div class="card-header"><h3 class="card-title"><i class="bi bi-headset me-2"></i>Support Center</h3></div>
+          <div class="card-body"><p class="text-secondary">Report anything that is not working, request a software change, or suggest a new IntelliHire feature. Your conversation is stored in PostgreSQL and remains available to you and the admin team.</p>
+            <form id="newChat"><div class="mb-2"><label class="form-label">Subject</label><input id="subject" class="form-control" maxlength="200" placeholder="e.g. Module 4 interview issue" required></div>
+            <div class="mb-2"><label class="form-label">Priority</label><select id="priority" class="form-select"><option>NORMAL</option><option>LOW</option><option>HIGH</option><option>URGENT</option></select></div>
+            <div class="mb-2"><label class="form-label">Message</label><textarea id="firstMessage" class="form-control" rows="6" maxlength="8000" placeholder="Describe what happened, what you expected, and the module involved..." required></textarea></div>
+            <button class="btn btn-primary w-100"><i class="bi bi-chat-dots me-1"></i>Start Support Chat</button></form>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-8"><div class="card h-100"><div class="card-header"><h3 class="card-title">My Conversations</h3><button class="btn btn-sm btn-outline-primary float-end" onclick="loadConversations()"><i class="bi bi-arrow-clockwise"></i></button></div><div class="card-body p-0"><div id="conversationList" class="list-group list-group-flush"></div></div></div></div>
+    </div>
+    <div class="card mt-3" id="chatCard" style="display:none"><div class="card-header"><div><h3 id="chatTitle" class="card-title mb-1"></h3><span id="chatMeta" class="badge text-bg-secondary"></span></div></div><div class="card-body"><div id="messages" class="border rounded p-3" style="height:380px;overflow:auto;background:#f8f9fa"></div><form id="replyForm" class="input-group mt-3"><input id="reply" class="form-control" maxlength="8000" placeholder="Write your message..."><button class="btn btn-primary">Send</button></form></div></div>
+  </div></div></main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@4.1.0/dist/js/adminlte.min.js"></script>
+<script>
+let active=null;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(url,opt={}){const r=await fetch(url,{headers:{'Content-Type':'application/json'},...opt});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function loadConversations(){const d=await api('/auth/support/api/conversations');const box=document.getElementById('conversationList');box.innerHTML=d.conversations.length?d.conversations.map(c=>`<button class="list-group-item list-group-item-action ${active===c.id?'active':''}" onclick="openChat('${c.id}')"><div class="d-flex justify-content-between"><strong>${esc(c.subject)}</strong><span class="badge text-bg-${c.priority==='URGENT'?'danger':c.priority==='HIGH'?'warning':'secondary'}">${esc(c.priority)}</span></div><small>${esc(c.status)} · ${c.message_count} messages · ${new Date(c.last_message_at).toLocaleString()}</small></button>`).join(''):'<div class="p-4 text-secondary">No conversations yet. Start one from the Support Center.</div>'}
+async function openChat(id){active=id;const d=await api('/auth/support/api/conversations/'+id);document.getElementById('chatCard').style.display='block';document.getElementById('chatTitle').textContent=d.conversation.subject;document.getElementById('chatMeta').textContent=d.conversation.status+' · '+d.conversation.priority;document.getElementById('messages').innerHTML=d.messages.map(m=>`<div class="mb-3"><div class="small text-secondary"><strong>${esc(m.sender_name)}</strong> · ${esc(m.sender_role)} · ${new Date(m.created_at).toLocaleString()}</div><div class="p-2 rounded ${m.sender_role==='USER'?'bg-primary text-white':'bg-white border'}">${esc(m.body).replace(/\n/g,'<br>')}</div></div>`).join('');const el=document.getElementById('messages');el.scrollTop=el.scrollHeight;loadConversations()}
+document.getElementById('newChat').onsubmit=async e=>{e.preventDefault();try{const d=await api('/auth/support/api/conversations',{method:'POST',body:JSON.stringify({subject:subject.value,message:firstMessage.value,priority:priority.value})});subject.value='';firstMessage.value='';await loadConversations();openChat(d.conversation.id)}catch(x){alert('Could not create support chat: '+x.message)}};
+document.getElementById('replyForm').onsubmit=async e=>{e.preventDefault();if(!active||!reply.value.trim())return;try{await api('/auth/support/api/conversations/'+active+'/messages',{method:'POST',body:JSON.stringify({body:reply.value})});reply.value='';openChat(active)}catch(x){alert('Could not send message: '+x.message)}};
+loadConversations();setInterval(()=>{if(active)openChat(active);else loadConversations()},15000);
+</script>
+</body></html>
