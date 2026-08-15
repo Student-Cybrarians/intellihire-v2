@@ -51,3 +51,5 @@ class AIOrchestratorTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+# Full-suite diagnostics are intentionally triggered from this file after AI-layer changes.
