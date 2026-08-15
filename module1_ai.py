@@ -62,6 +62,18 @@ def _sanitize_resume(resume,missing,matched,role):
 
 def analyze_with_ai(resume_text,jd_text,company="",role=""):
     metrics=_deterministic_metrics(resume_text,jd_text)
+    try:
+        from ai import get_orchestrator
+        from ai.schemas import MODULE1_SCHEMA
+        ai_result=get_orchestrator().generate_structured(
+            user_id="module1", feature="module1_ats",
+            task="Explain the deterministic ATS baseline, strengths, contextual matches, gaps, weak evidence and resume improvements. Never invent candidate facts.",
+            context={"resume":resume_text[:18000],"job_description":jd_text[:14000],"company":company,"role":role,"deterministic_metrics":metrics},
+            schema=MODULE1_SCHEMA, reasoning=True, max_tokens=2200, retries=1, cache=False)
+        ai=ai_result["data"]
+        return {"provider":ai_result["provider"],"model":ai_result["model"],"is_ai":True,"ai_metadata":{k:ai_result[k] for k in ("requestId","latencyMs","usage","promptVersion")},"baseline":metrics,"ats_score":metrics["ats_baseline"],"overall_match":metrics["ats_baseline"],"keyword_match":metrics["keyword_match"],"semantic_match":metrics["keyword_match"],"skills_match":metrics["skill_match"],"matched_skills":metrics["matched_skills"],"missing_skills":metrics["missing_skills"],"strengths":ai.get("strengths",[]),"risks":ai.get("weakEvidence",[]),"recommendations":ai.get("recommendations",[]),"recruiter_feedback":ai.get("summary",""),"feedback":ai.get("summary",""),"learning_plan":ai.get("recommendations",[]),"recommended_certifications":[],"tailored_resume":{"name":"Candidate","headline":role or "Target Role","summary":ai.get("summary",""),"skills":ai.get("matchedSkills",[]),"experience":[],"education":[],"projects":[],"certifications":[],"keywords":metrics["matched_skills"]},"company":company,"role":role,"shortlist":"NOT_A_DECISION","ai_insights":ai}
+    except Exception:
+        pass
     system="""You are IntelliHire's senior ATS/recruitment intelligence engine. Analyze a candidate resume strictly against the supplied job description and target role. Never invent candidate experience, education, employment, projects, certifications, employers, metrics, or skills. You may recommend skills/certifications as learning targets, but label them as recommendations. Return ONLY valid JSON with these keys: candidate, job, ats_score, overall_match, keyword_match, semantic_match, skills_match, matched_skills, missing_skills, strengths, risks, recommendations, recruiter_feedback, learning_plan, recommended_certifications, tailored_resume. tailored_resume must contain name, headline, summary, skills, experience, education, projects, certifications, keywords. Preserve factual candidate content. Never put an unverified JD skill into candidate-claimed experience. If you include a target skill in the resume skills section, prefix it with [VERIFY]."""
     prompt=f"""TARGET COMPANY: {company}\nTARGET ROLE: {role}\n\nJOB DESCRIPTION:\n{jd_text[:14000]}\n\nCANDIDATE RESUME:\n{resume_text[:18000]}\n\nDeterministic baseline metrics: {json.dumps(metrics)}\nProvide rigorous evidence-based ATS analysis and a clean ATS-friendly resume. Optimize for the JD's responsibilities and keywords while preserving candidate truth. Separate demonstrated skills from target/missing skills. Recommend certifications only when relevant; label all recommendations as recommendations."""
     providers=[]

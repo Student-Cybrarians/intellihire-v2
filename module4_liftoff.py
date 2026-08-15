@@ -71,5 +71,10 @@ def openai_feedback(question_text,transcript):
     return _chat('https://api.openai.com/v1/chat/completions',os.getenv('OPENAI_API_KEY'),os.getenv('INTELLIHIRE_FEEDBACK_MODEL','gpt-4o-mini'),'You are an HR hiring manager. Evaluate relevance, communication, confidence and STAR structure. Give concise feedback with strengths and one improvement.',f'Interview question: {question_text}\nCandidate transcript: {transcript}')
 
 def model_feedback(question_text,transcript):
-    if os.getenv('INTELLIHIRE_AI_PROVIDER','nvidia').lower()=='openai': return openai_feedback(question_text,transcript) or nvidia_feedback(question_text,transcript)
-    return nvidia_feedback(question_text,transcript) or openai_feedback(question_text,transcript)
+    try:
+        from ai import get_orchestrator
+        from ai.schemas import INTERVIEW_SCHEMA
+        result=get_orchestrator().generate_structured(user_id='module4',feature='module4_hr_interview',task='Act as an HR interview coach. Evaluate clarity, relevance, evidence and STAR structure. Do not infer protected characteristics or make employment decisions.',context={'question':question_text,'candidate_response':transcript[:12000]},schema=INTERVIEW_SCHEMA,reasoning=True,max_tokens=900,retries=0)
+        return result['data']
+    except Exception:
+        return None

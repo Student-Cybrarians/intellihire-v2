@@ -106,3 +106,24 @@ def run_research(twin, question, supplied_sources=None, max_results=6, skill_gra
     brief=build_research_brief(twin or {},question,supplied,max_results)
     synthesis=synthesize(brief,context)
     return {**brief,'retrieval_status':status,'context':context,'synthesis':synthesis,'integrity':{'fabricated_sources':False,'fabricated_claims':not synthesis.get('is_ai',False)}}
+
+
+def synthesize_via_central_orchestrator(brief, context=None, timeout=None):
+    sources=brief.get("sources",[])
+    if not sources:
+        return {"provider":"none","is_ai":False,"synthesis_status":"no_evidence","answer":"No live evidence was retrieved.","key_findings":[],"implications_for_candidate":[],"learning_actions":[],"citations":[]}
+    try:
+        from ai import get_orchestrator
+        from ai.schemas import RESEARCH_SCHEMA
+        evidence=[{"url":s.get("url",""),"title":s.get("title",""),"snippet":s.get("snippet","")} for s in sources]
+        result=get_orchestrator().generate_structured(user_id="research",feature="research_intern",task="Synthesize only the supplied sources. Every factual finding must be grounded in supplied URLs.",context={"question":brief.get("question",""),"sources":evidence,"personal_context":context or {}},schema=RESEARCH_SCHEMA,reasoning=True,max_tokens=1800,retries=1,cache=True,evidence=evidence)
+        allowed={s.get("url") for s in sources}
+        data=result["data"]
+        data["citations"]=[x for x in data.get("citations",[]) if x in allowed]
+        return {"provider":result["provider"],"model":result["model"],"is_ai":True,"synthesis_status":"ai_grounded",**data}
+    except Exception as exc:
+        return {"provider":"none","is_ai":False,"synthesis_status":"unavailable","answer":"AI analysis is temporarily unavailable. Review the cited evidence directly.","key_findings":[],"implications_for_candidate":[],"learning_actions":[],"citations":[s.get("url","") for s in sources],"ai_error":f"{type(exc).__name__}: {exc}"}
+
+_original_synthesize=synthesize
+def synthesize(brief, context=None, timeout=None):
+    return synthesize_via_central_orchestrator(brief, context, timeout)

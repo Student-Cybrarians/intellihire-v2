@@ -14,6 +14,8 @@ app=Flask(__name__,static_folder='static',template_folder='templates')
 app.secret_key=os.getenv('FLASK_SECRET_KEY',os.getenv('SESSION_SECRET','dev-only-change-me'))
 app.config.update(SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SECURE=True,SESSION_COOKIE_SAMESITE='Lax')
 app.register_blueprint(auth);app.register_blueprint(module2);app.register_blueprint(module3);app.register_blueprint(module4);app.register_blueprint(module5)
+from ai_routes import ai_api
+app.register_blueprint(ai_api)
 
 SKILLS=['python','javascript','react','node.js','java','sql','mongodb','postgresql','rest api','docker','kubernetes','aws','fastapi','flask','django','pytorch','tensorflow','nlp','machine learning','deep learning','scikit-learn','system design','microservices','git','linux','pandas','numpy']
 DEMO={'name':'Alex Johnson','role':'Software Engineer','company':'TechNova','skills':['Python','React','JavaScript','Node.js','MongoDB','REST API','Git','Pandas','NumPy'],'experience':3}
@@ -142,7 +144,15 @@ def assessment():
     if request.method=='POST':
         q=next((x for x in QUESTION_BANK if x.id==request.form.get('question_id')),None)
         if q:
-            e=evaluate_answer(s['ability'],q,int(request.form.get('answer',-1)));s['events'].append(e);s['answered'].append(q.id);s['ability']=e['ability_after'];session['m2']=s
+            e=evaluate_answer(s['ability'],q,int(request.form.get('answer',-1)))
+            try:
+                from ai import get_orchestrator
+                from ai.schemas import MODULE2_SCHEMA
+                ai_result=get_orchestrator().generate_structured(user_id=user['id'],feature='module2_feedback',task='Explain the deterministic assessment result, misconception and next conceptual focus. Never change correctness.',context={'question':q.__dict__,'answer_index':int(request.form.get('answer',-1)),'deterministic_result':e},schema=MODULE2_SCHEMA,max_tokens=700,retries=0)
+                e['ai_feedback']=ai_result['data']
+            except Exception:
+                e['ai_feedback']={'status':'unavailable','message':'AI analysis is temporarily unavailable.'}
+            s['events'].append(e);s['answered'].append(q.id);s['ability']=e['ability_after'];session['m2']=s
     if len(s['events'])>=s['count']:
         result=score_assessment(s['events'])
         try:record_performance(user['id'],'module2',result.get('score',result.get('overall',0)),result)

@@ -35,6 +35,13 @@ def evaluate_route():
     try:
         performance,twin,research,roadmap,behavioral=_readiness_inputs(user['id'])
         result=build_readiness(performance,twin,research,roadmap,behavioral)
+        try:
+            from ai import get_orchestrator
+            from ai.schemas import MODULE5_SCHEMA
+            ai_result=get_orchestrator().generate_structured(user_id=user['id'],feature='module5_readiness',task='Explain evidence-based readiness, strengths, weaknesses, skill gaps and next actions. Never invent or change numerical scores.',context={'performance':performance,'career_twin':twin,'research':research,'roadmap':roadmap,'behavioral':behavioral,'deterministic_readiness':result},schema=MODULE5_SCHEMA,reasoning=True,max_tokens=1800,retries=0,cache=True)
+            result['ai_insights']=ai_result['data']
+        except Exception:
+            result['ai_insights']={'status':'unavailable','message':'AI analysis is temporarily unavailable.'}
         result['persistence']=save_readiness(user['id'],result)
         record_performance(user['id'],'module5',result['weighted_score'],result)
         return jsonify(result)

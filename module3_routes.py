@@ -75,7 +75,15 @@ def answer():
     if len(text)>12000:return jsonify({'error':'answer_too_long'}),413
     q=_next(s)
     if not q:return jsonify({'error':'interview_complete'}),409
-    result=score_answer(text); s['events'].append({'question_id':q['id'],'answer':text,'evaluation':result})
+    result=score_answer(text)
+    try:
+        from ai import get_orchestrator
+        from ai.schemas import INTERVIEW_SCHEMA
+        ai_result=get_orchestrator().generate_structured(user_id=user['id'],feature='module3_interview',task='Evaluate technical reasoning and explanation quality and propose one follow-up question. Do not override deterministic code results.',context={'question':q,'answer':text[:12000],'deterministic_evaluation':result},schema=INTERVIEW_SCHEMA,reasoning=True,max_tokens=900,retries=0)
+        result['ai_feedback']=ai_result['data']
+    except Exception:
+        result['ai_feedback']={'status':'unavailable','message':'AI analysis is temporarily unavailable.'}
+    s['events'].append({'question_id':q['id'],'answer':text,'evaluation':result})
     update_skill_state(s,q,result)
     try: save_session(sid,user['id'],s)
     except Exception:return jsonify({'error':'service_unavailable'}),503
