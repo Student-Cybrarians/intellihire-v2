@@ -1,0 +1,41 @@
+name: IntelliHire Vercel Deploy Retry
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 17 * * *'
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master-branch
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build production bundle
+        run: |
+          npm install
+          npm run typecheck
+          npm run build
+
+      - name: Validate Vercel deployment credentials
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo 'Missing GitHub secret VERCEL_TOKEN'; exit 1; }
+          test -n "$VERCEL_ORG_ID" || { echo 'Missing GitHub secret VERCEL_ORG_ID'; exit 1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo 'Missing GitHub secret VERCEL_PROJECT_ID'; exit 1; }
+
+      - name: Deploy production through Vercel CLI
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npx --yes vercel link --yes --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+          npx --yes vercel deploy --prod --yes --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
