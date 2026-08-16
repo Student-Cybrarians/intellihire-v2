@@ -1,6 +1,9 @@
+'use client';
+import {useState} from 'react';
 import Link from 'next/link';
 import AppShell from '../AppShell';
-
-export default function Module5Page() {
-  return <AppShell><div className="card"><small>MODULE 5 · HIRING READINESS</small><h1>Hiring Readiness</h1><p>Connect preparation evidence into readiness intelligence, skill gaps, recommendations and a career roadmap.</p><div className="notice">Module 5 workflow integration is the next implementation stage. Your dashboard navigation is active.</div><div className="buttons"><Link className="primary" href="/app/dashboard">Back to dashboard</Link></div></div></AppShell>;
+export default function Module5Page(){
+ const [result,setResult]=useState<any>(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
+ const evaluate=async()=>{setLoading(true);setError('');try{const r=await fetch('/api/module5/evaluate',{method:'POST',credentials:'include'});const d=await r.json();if(!r.ok)throw Error(d.error||'Readiness evaluation unavailable');setResult(d)}catch(e:any){setError(e.message)}finally{setLoading(false)}};
+ return <AppShell><div className="card"><small>MODULE 5 · HIRING READINESS</small><h1>Hiring Readiness</h1><p>Combine saved module evidence, behavioral competencies, career-twin context and roadmap data into an evidence-based readiness signal.</p>{error&&<div className="notice">{error}</div>}<div className="buttons"><button className="primary" onClick={evaluate} disabled={loading}>{loading?'Calculating…':'Evaluate readiness →'}</button><Link href="/app/module1">Improve resume</Link><Link href="/app/module2">Take assessment</Link><Link href="/app/module4">Practice HR</Link></div></div>{result&&<div className="card"><small>READINESS REPORT</small><div className="stats"><b>Readiness<span>{result.weighted_score ?? result.score ?? 0}%</span></b><b>Evidence<span>{result.evidence_score ?? '—'}</span></b><b>Coverage<span>{result.coverage ?? '—'}</span></b><b>Status<span>{result.status||'Calculated'}</span></b></div><h2>Next actions</h2>{Array.isArray(result.next_actions)&&result.next_actions.length?<div className="chips">{result.next_actions.map((x:any,i:number)=><span key={i}>{typeof x==='string'?x:x.title||x.action||JSON.stringify(x)}</span>)}</div>:<p>Review your weakest module and repeat it to strengthen the evidence base.</p>}{result.ai_insights?.message&&<div className="notice">{result.ai_insights.message}</div>}<p className="muted">Readiness is preparation evidence; it does not make employment decisions.</p></div>}</AppShell>;
 }
