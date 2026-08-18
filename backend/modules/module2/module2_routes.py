@@ -16,8 +16,10 @@ def _public_question(question):
 
 
 def _parse_answer(data):
+    if not isinstance(data, dict) or 'answer' not in data:
+        raise ValueError('invalid_answer')
     try:
-        return int(data.get('answer', -1))
+        return int(data['answer'])
     except (TypeError, ValueError):
         raise ValueError('invalid_answer')
 
