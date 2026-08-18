@@ -1,23 +1,27 @@
-.............F.......................F.................................. [ 84%]
-.............                                                            [100%]
-=================================== FAILURES ===================================
-___________ test_vercel_routes_cover_public_and_application_surfaces ___________
 
-    def test_vercel_routes_cover_public_and_application_surfaces():
-        config = json.loads(Path("vercel.json").read_text(encoding="utf-8"))
->       rewrites = {item["source"]: item["destination"] for item in config["rewrites"]}
-                                                                    ^^^^^^^^^^^^^^^^^^
-E       KeyError: 'rewrites'
-
-tests/test_deployment_smoke.py:44: KeyError
-___________ test_parse_answer_rejects_missing_and_non_numeric_values ___________
-
-    def test_parse_answer_rejects_missing_and_non_numeric_values():
->       with pytest.raises(ValueError, match='invalid_answer'):
-E       Failed: DID NOT RAISE ValueError
-
-tests/test_module2_persistence.py:40: Failed
+==================================== ERRORS ====================================
+________________ ERROR collecting tests/test_ai_orchestrator.py ________________
+ImportError while importing test module '/home/runner/work/intellihire-v2/intellihire-v2/tests/test_ai_orchestrator.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_ai_orchestrator.py:6: in <module>
+    from ai.orchestrator import AIOrchestrator, AIProviderError
+E   ModuleNotFoundError: No module named 'ai'
+_____________ ERROR collecting tests/test_production_hardening.py ______________
+ImportError while importing test module '/home/runner/work/intellihire-v2/intellihire-v2/tests/test_production_hardening.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_production_hardening.py:1: in <module>
+    import production_hardening
+E   ModuleNotFoundError: No module named 'production_hardening'
 =========================== short test summary info ============================
-FAILED tests/test_deployment_smoke.py::test_vercel_routes_cover_public_and_application_surfaces - KeyError: 'rewrites'
-FAILED tests/test_module2_persistence.py::test_parse_answer_rejects_missing_and_non_numeric_values - Failed: DID NOT RAISE ValueError
-2 failed, 83 passed in 2.36s
+ERROR tests/test_ai_orchestrator.py
+ERROR tests/test_production_hardening.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.80s
