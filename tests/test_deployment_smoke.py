@@ -39,23 +39,15 @@ def test_public_routes_are_reachable_through_flask_entrypoint():
             assert b"INTELLIHIRE" in response.data, path
 
 
-def test_vercel_routes_cover_public_and_application_surfaces():
+def test_vercel_configuration_preserves_nextjs_frontend_and_api_boundary():
     config = json.loads(Path("vercel.json").read_text(encoding="utf-8"))
-    rewrites = {item["source"]: item["destination"] for item in config["rewrites"]}
-    expected = {
-        "/": "/api/index.py",
-        "/about": "/api/index.py",
-        "/how-it-works": "/api/index.py",
-        "/features": "/api/index.py",
-        "/pricing": "/api/index.py",
-        "/contact": "/api/index.py",
-        "/api/:path*": "/api/index.py",
-        "/auth/:path*": "/api/index.py",
-        "/admin/:path*": "/api/index.py",
-        "/app/:path*": "/api/index.py",
-    }
-    for source, destination in expected.items():
-        assert rewrites.get(source) == destination, source
+    assert config["framework"] == "nextjs"
+    assert config["buildCommand"] == "npm run build"
+    assert config["functions"]["api/index.py"]["maxDuration"] == 60
+    assert config["git"]["deploymentEnabled"]["master-branch"] is True
+    assert "rewrites" not in config
+    assert Path("index.py").exists()
+    assert not Path("app.py").exists()
 
 
 def test_demo_endpoint_is_read_only_and_structurally_valid():
