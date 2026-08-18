@@ -3,8 +3,8 @@ import os
 import unittest
 from unittest.mock import patch
 
-from ai.orchestrator import AIOrchestrator, AIProviderError
-from ai.providers import AIProviderTimeoutError, AIResponse, DeepSeekProvider
+from backend.ai.orchestrator import AIOrchestrator, AIProviderError
+from backend.ai.providers import AIProviderTimeoutError, AIResponse, DeepSeekProvider
 
 
 class FakeProvider:
