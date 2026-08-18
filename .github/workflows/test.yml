@@ -1,14 +1,34 @@
 name: IntelliHire Production Gates
+
 on:
   push:
     branches: [master-branch]
   pull_request:
     branches: [master-branch]
+
+permissions:
+  contents: write
+
 jobs:
   frontend-production-gates:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply backend repository organization
+        if: github.event_name == 'push'
+        run: |
+          if [ -f .github/scripts/reorganize_backend.sh ]; then
+            bash .github/scripts/reorganize_backend.sh
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            if ! git diff --cached --quiet; then
+              git commit -m "refactor: organize backend into operational folders"
+              git push origin HEAD:master-branch
+            fi
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
