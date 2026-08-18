@@ -1,5 +1,5 @@
-from module5_engine import evaluate
-from module5_readiness import build_readiness
+from backend.modules.module5.module5_engine import evaluate
+from backend.modules.module5.module5_readiness import build_readiness
 
 
 def test_readiness_is_bounded_and_support_only():

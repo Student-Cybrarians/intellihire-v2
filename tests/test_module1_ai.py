@@ -1,8 +1,8 @@
 import json
 
-import module1_ai
-from ml_engine import analyze_resume, bm25_score, career_gap_analysis, build_career_context, match_resume_to_job, normalize_skill, research_plan
-from module1_ai import _deterministic_metrics, _extract_json, analyze_with_ai, resume_csv_bytes, resume_docx_bytes, resume_pdf_bytes
+import backend.modules.module1.module1_ai
+from backend.intelligence.ml_engine import analyze_resume, bm25_score, career_gap_analysis, build_career_context, match_resume_to_job, normalize_skill, research_plan
+from backend.modules.module1.module1_ai import _deterministic_metrics, _extract_json, analyze_with_ai, resume_csv_bytes, resume_docx_bytes, resume_pdf_bytes
 
 
 def test_json_parser_handles_fenced_json():

@@ -1,6 +1,6 @@
 import json
 import pytest
-import research_retrieval
+import backend.research.research_retrieval
 
 
 def test_retrieve_requires_configured_provider(monkeypatch):

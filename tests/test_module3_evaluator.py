@@ -1,4 +1,4 @@
-import module3_evaluator as evaluator
+import backend.modules.module3.module3_evaluator as evaluator
 
 
 def test_python_static_analysis_never_executes_code():

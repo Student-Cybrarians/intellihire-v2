@@ -1,8 +1,8 @@
 import pytest
 
-from module2_engine import QUESTION_BANK, evaluate_answer, score_assessment
-from module2_routes import _parse_answer, _public_question
-from module2_store import create_assessment, get_assessment
+from backend.modules.module2.module2_engine import QUESTION_BANK, evaluate_answer, score_assessment
+from backend.modules.module2.module2_routes import _parse_answer, _public_question
+from backend.modules.module2.module2_store import create_assessment, get_assessment
 
 
 def test_create_assessment_rejects_out_of_range_without_db(monkeypatch):

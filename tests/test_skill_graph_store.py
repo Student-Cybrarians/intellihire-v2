@@ -1,6 +1,6 @@
 import json
 
-import skill_graph_store
+import backend.intelligence.skill_graph_store
 
 
 class FakeCursor:

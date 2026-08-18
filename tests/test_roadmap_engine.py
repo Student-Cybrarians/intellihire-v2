@@ -1,4 +1,4 @@
-from roadmap_engine import generate_roadmap
+from backend.intelligence.roadmap_engine import generate_roadmap
 
 
 def test_roadmap_is_bounded_and_evidence_linked():

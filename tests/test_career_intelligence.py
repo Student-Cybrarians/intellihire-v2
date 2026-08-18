@@ -1,4 +1,4 @@
-from career_intelligence import build_career_twin, build_roadmap, extract_skills
+from backend.intelligence.career_intelligence import build_career_twin, build_roadmap, extract_skills
 
 
 def test_skill_extraction_normalizes_aliases():

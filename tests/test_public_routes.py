@@ -1,4 +1,4 @@
-from public_routes import public
+from backend.auth.public_routes import public
 from flask import Flask
 
 

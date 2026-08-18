@@ -1,6 +1,6 @@
 import os
 import unittest
-from module4_liftoff import start, question, answer, finish, score_transcript, model_feedback
+from backend.modules.module4.module4_liftoff import start, question, answer, finish, score_transcript, model_feedback
 
 class Module4LiftoffBackendTests(unittest.TestCase):
     def setUp(self):

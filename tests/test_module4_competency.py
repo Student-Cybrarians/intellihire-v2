@@ -1,4 +1,4 @@
-from module4_competency import aggregate
+from backend.modules.module4.module4_competency import aggregate
 
 
 def _event(qid, score=85):

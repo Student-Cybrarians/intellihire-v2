@@ -17,7 +17,7 @@ replace_once('research_retrieval.py',
 # Keep the authenticated central AI endpoints registered.
 app_path=ROOT/'app.py'; app_text=app_path.read_text(encoding='utf-8')
 marker="app.register_blueprint(auth);app.register_blueprint(module2);app.register_blueprint(module3);app.register_blueprint(module4);app.register_blueprint(module5)"
-if 'from ai_routes import ai_api' not in app_text:
-    app_text=app_text.replace(marker,marker+"\nfrom ai_routes import ai_api\napp.register_blueprint(ai_api)",1)
+if 'from backend.api.ai_routes import backend.ai_api' not in app_text:
+    app_text=app_text.replace(marker,marker+"\nfrom backend.api.ai_routes import backend.ai_api\napp.register_blueprint(ai_api)",1)
 app_path.write_text(app_text,encoding='utf-8')
 print('AI integration patch applied')

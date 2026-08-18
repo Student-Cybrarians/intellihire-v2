@@ -1,5 +1,5 @@
-from module3_adaptive import initial_state, select_next_question, update_skill_state, record_code_signal
-from module3_routes import QUESTIONS
+from backend.modules.module3.module3_adaptive import initial_state, select_next_question, update_skill_state, record_code_signal
+from backend.modules.module3.module3_routes import QUESTIONS
 
 
 def test_adaptive_state_is_bounded_and_persistent_shape():

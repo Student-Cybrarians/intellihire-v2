@@ -1,5 +1,5 @@
 import pytest
-from module3_routes import QUESTIONS, score_answer
+from backend.modules.module3.module3_routes import QUESTIONS, score_answer
 
 
 def test_module3_scoring_is_bounded():

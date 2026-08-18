@@ -1,4 +1,4 @@
-from career_twin_store import _fingerprint
+from backend.intelligence.career_twin_store import _fingerprint
 
 
 def test_fingerprint_is_stable_and_non_reversible():

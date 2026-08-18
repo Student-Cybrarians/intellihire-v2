@@ -1,4 +1,4 @@
-from research_context import build_context
+from backend.research.research_context import build_context
 
 
 def test_context_preserves_skill_graph_states_and_excludes_sensitive_free_text():

@@ -1,7 +1,7 @@
-from career_intelligence import build_career_twin
-from research_context import build_context
-from roadmap_engine import generate_roadmap
-from module5_readiness import build_readiness
+from backend.intelligence.career_intelligence import build_career_twin
+from backend.research.research_context import build_context
+from backend.intelligence.roadmap_engine import generate_roadmap
+from backend.modules.module5.module5_readiness import build_readiness
 
 
 def test_career_twin_to_research_to_roadmap_to_readiness_pipeline():

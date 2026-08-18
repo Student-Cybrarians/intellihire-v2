@@ -1,5 +1,5 @@
 import unittest
-from module4_liftoff import start, question, answer, finish, score_transcript
+from backend.modules.module4.module4_liftoff import start, question, answer, finish, score_transcript
 
 
 class Module4EngineTests(unittest.TestCase):

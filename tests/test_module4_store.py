@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch
-from module4_store import create_session, get_session, save_session, list_sessions
+from backend.modules.module4.module4_store import create_session, get_session, save_session, list_sessions
 
 class Module4StoreTests(unittest.TestCase):
     def test_store_requires_user_scope(self):

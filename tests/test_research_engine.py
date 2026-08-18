@@ -1,5 +1,5 @@
 import pytest
-from research_engine import build_research_brief
+from backend.research.research_engine import build_research_brief
 
 
 def test_research_brief_deduplicates_and_ranks_sources():
