@@ -1,4 +1,4 @@
-import production_hardening
+from backend.core import production_hardening
 
 
 def test_health_probe_is_public_and_structured():
@@ -22,7 +22,7 @@ def test_ready_probe_returns_503_when_database_is_unavailable(monkeypatch):
         def __exit__(self, *args):
             return False
 
-    import backend.auth.auth_db
+    from backend.auth import auth_db
     monkeypatch.setattr(auth_db, "db_connect", lambda: BrokenDB())
     response = app.test_client().get("/readyz")
     assert response.status_code == 503
