@@ -6,7 +6,7 @@ from backend.modules.module2.module2_store import create_assessment, get_assessm
 
 
 def test_create_assessment_rejects_out_of_range_without_db(monkeypatch):
-    monkeypatch.setattr('module2_store.init_module2_store', lambda: (_ for _ in ()).throw(AssertionError('db should not be reached')))
+    monkeypatch.setattr('backend.modules.module2.module2_store.init_module2_store', lambda: (_ for _ in ()).throw(AssertionError('db should not be reached')))
     with pytest.raises(ValueError, match='invalid_target_questions'):
         create_assessment('user-id', target_questions=0)
     with pytest.raises(ValueError, match='invalid_target_questions'):
@@ -14,7 +14,7 @@ def test_create_assessment_rejects_out_of_range_without_db(monkeypatch):
 
 
 def test_get_assessment_rejects_invalid_identifier_without_db(monkeypatch):
-    monkeypatch.setattr('module2_store.db_connect', lambda: (_ for _ in ()).throw(AssertionError('db should not be reached')))
+    monkeypatch.setattr('backend.modules.module2.module2_store.db_connect', lambda: (_ for _ in ()).throw(AssertionError('db should not be reached')))
     assert get_assessment('user-id', 'not-a-uuid') is None
 
 
