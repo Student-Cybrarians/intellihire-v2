@@ -24,4 +24,4 @@ E   ModuleNotFoundError: No module named 'production_hardening'
 ERROR tests/test_ai_orchestrator.py
 ERROR tests/test_production_hardening.py
 !!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
-2 errors in 0.80s
+2 errors in 0.84s
