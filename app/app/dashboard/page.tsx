@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import AppShell from '../AppShell';
+import { api } from '../../../operational/frontend/apiClient';
 
 const modules = [
   { id: '01', href: '/app/module1', title: 'ATS & Resume Intelligence', text: 'Match your resume to a target role, identify gaps and prepare ATS-ready evidence.' },
@@ -20,11 +21,7 @@ export default function DashboardPage() {
   const [unauthorized, setUnauthorized] = useState(false);
 
   useEffect(() => {
-    fetch('/api/auth/me', { credentials: 'include' })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('unauthorized');
-        return res.json();
-      })
+    api.authMe()
       .then((data) => setUser(data.user || null))
       .catch(() => setUnauthorized(true))
       .finally(() => setLoading(false));
