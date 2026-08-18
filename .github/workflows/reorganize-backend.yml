@@ -1,0 +1,33 @@
+name: Reorganize backend
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master-branch]
+    paths:
+      - '.github/scripts/reorganize_backend.sh'
+
+permissions:
+  contents: write
+
+jobs:
+  reorganize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master-branch
+          fetch-depth: 0
+      - name: Reorganize backend
+        run: bash .github/scripts/reorganize_backend.sh
+      - name: Commit backend layout
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "refactor: organize backend into operational folders"
+          git push origin HEAD:master-branch
