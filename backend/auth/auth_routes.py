@@ -112,8 +112,13 @@ def logout():
 def me():
     user = current_user()
     if not user:
-        return jsonify({'authenticated': False}), 401
-    return jsonify({'authenticated': True, 'user': user})
+        response = jsonify({'authenticated': False})
+        response.status_code = 401
+    else:
+        response = jsonify({'authenticated': True, 'user': user})
+    response.headers['Cache-Control'] = 'no-store, private'
+    response.headers['Vary'] = 'Cookie'
+    return response
 
 
 @auth.post('/module1/analyze')
@@ -195,4 +200,4 @@ def module1_export(fmt):
             return send_file(BytesIO(resume_csv_bytes(resume)), as_attachment=True, download_name='intellihire_ats_resume.csv', mimetype='text/csv')
     except Exception as exc:
         return jsonify({'error': 'resume_export_failed', 'detail': str(exc)}), 500
-    return jsonify({'error': 'unsupported_export_format', 'supported': ['docx', 'pdf', 'csv']}), 415
+    return jsonify({'error': 'unsupported_export_format', 'supported': ['docx', 'pdf', 'csv']}) , 415
