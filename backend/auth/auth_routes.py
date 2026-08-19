@@ -1,4 +1,4 @@
-import os, secrets, urllib.parse, json
+import base64, hashlib, hmac, json, os, secrets, time, urllib.parse
 from io import BytesIO
 from flask import Blueprint, abort, redirect, request, jsonify, make_response, send_file
 from backend.auth.auth_db import get_or_create_google_user, create_session, get_session, revoke_session, audit, record_performance
@@ -41,14 +41,52 @@ def _google_configured():
     return all(os.getenv(k) for k in ('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI')) and requests is not None and id_token is not None and google_requests is not None
 
 
+def _oauth_signing_key():
+    # Use a deployment-specific secret already required for OAuth. This makes
+    # the state self-contained so callback validation does not depend on a
+    # browser cookie surviving a cross-site OAuth redirect.
+    return os.getenv('GOOGLE_CLIENT_SECRET', '').encode('utf-8')
+
+
+def _build_oauth_state(nonce):
+    payload = {'nonce': nonce, 'iat': int(time.time())}
+    raw = json.dumps(payload, separators=(',', ':'), sort_keys=True).encode('utf-8')
+    body = base64.urlsafe_b64encode(raw).decode().rstrip('=')
+    key = _oauth_signing_key()
+    signature = hmac.new(key, body.encode('ascii'), hashlib.sha256).digest()
+    return body + '.' + base64.urlsafe_b64encode(signature).decode().rstrip('=')
+
+
+def _read_oauth_state(state):
+    try:
+        body, encoded_sig = state.split('.', 1)
+        key = _oauth_signing_key()
+        if not key:
+            return None
+        expected = hmac.new(key, body.encode('ascii'), hashlib.sha256).digest()
+        supplied = base64.urlsafe_b64decode(encoded_sig + '=' * (-len(encoded_sig) % 4))
+        if not hmac.compare_digest(expected, supplied):
+            return None
+        payload = json.loads(base64.urlsafe_b64decode(body + '=' * (-len(body) % 4)).decode('utf-8'))
+        if not isinstance(payload, dict) or not payload.get('nonce'):
+            return None
+        if abs(int(time.time()) - int(payload.get('iat', 0))) > 600:
+            return None
+        return payload
+    except Exception:
+        return None
+
+
 @auth.get('/google')
 def google_login():
     if not _google_configured():
         return redirect('/?auth_error=google_not_configured')
-    state = secrets.token_urlsafe(32)
     nonce = secrets.token_urlsafe(32)
+    state = _build_oauth_state(nonce)
     params = {'client_id': os.getenv('GOOGLE_CLIENT_ID'), 'redirect_uri': os.getenv('GOOGLE_REDIRECT_URI'), 'response_type': 'code', 'scope': 'openid email profile', 'access_type': 'online', 'state': state, 'nonce': nonce, 'prompt': 'select_account'}
     response = make_response(redirect(GOOGLE_AUTHORIZE + '?' + urllib.parse.urlencode(params)))
+    # Keep the cookies for backward compatibility/defense in depth, but the
+    # signed state is the authoritative correlation mechanism.
     response.set_cookie(OAUTH_STATE_COOKIE, state, max_age=600, httponly=True, secure=True, samesite='Lax', path='/')
     response.set_cookie(OAUTH_NONCE_COOKIE, nonce, max_age=600, httponly=True, secure=True, samesite='Lax', path='/')
     return response
@@ -56,9 +94,9 @@ def google_login():
 
 @auth.get('/google/callback')
 def google_callback():
-    state = request.args.get('state')
-    expected = request.cookies.get(OAUTH_STATE_COOKIE)
-    if not state or not expected or not secrets.compare_digest(state, expected):
+    state = request.args.get('state', '')
+    state_payload = _read_oauth_state(state)
+    if not state_payload:
         return redirect('/?auth_error=invalid_oauth_state')
     code = request.args.get('code')
     if not code:
@@ -75,7 +113,7 @@ def google_callback():
         claims = id_token.verify_oauth2_token(raw_id_token, google_requests.Request(), os.getenv('GOOGLE_CLIENT_ID'))
         if claims.get('iss') not in ('accounts.google.com', 'https://accounts.google.com'):
             return redirect('/?auth_error=invalid_issuer')
-        if claims.get('nonce') != request.cookies.get(OAUTH_NONCE_COOKIE):
+        if claims.get('nonce') != state_payload.get('nonce'):
             return redirect('/?auth_error=invalid_nonce')
         if claims.get('email_verified') is not True:
             return redirect('/?auth_error=email_not_verified')
