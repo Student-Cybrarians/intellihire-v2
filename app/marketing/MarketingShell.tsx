@@ -60,7 +60,7 @@ export default function MarketingShell({ children, active = '' }: { children: Re
       <button type="button" className={styles.mobileMenu} onClick={() => setMenu(!menu)} aria-label="Toggle navigation" aria-expanded={menu}>☰</button>
       <nav className={`${styles.navlinks} ${menu ? styles.open : ''}`} aria-label="Primary navigation">
         {['about','features','courses','pricing','faq','contact'].map(item => <Link key={item} className={active === item ? styles.active : ''} onClick={() => setMenu(false)} href={`/${item}`}>{item[0].toUpperCase()+item.slice(1)}</Link>)}
-        <Link className={styles.login} href="/auth/google" onClick={() => setMenu(false)}>Sign in</Link>
+        <a className={styles.login} href="/api/auth/google" onClick={() => setMenu(false)}>Sign in</a>
         <button type="button" className={styles.theme} onClick={() => setDark(!dark)} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}>{dark ? '☀' : '☾'}</button>
       </nav>
     </header>
