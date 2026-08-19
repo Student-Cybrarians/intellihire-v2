@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import AppShell from '../AppShell';
-import { api } from '../../../operational/frontend/apiClient';
+import { api, apiRequest } from '../../../operational/frontend/apiClient';
 
 const modules = [
   { id: '01', href: '/app/module1', title: 'ATS & Resume Intelligence', text: 'Match your resume to a target role, identify gaps and prepare ATS-ready evidence.' },
@@ -25,7 +25,18 @@ export default function DashboardPage() {
     let active = true;
     const loadSession = async () => {
       try {
-        const data = await api.authMe();
+        // Prefer the canonical API boundary; retry the legacy Flask alias if
+        // a deployment edge is still serving the older route configuration.
+        let data;
+        try {
+          data = await apiRequest<{ authenticated?: boolean; user?: User }>('/api/auth/me', { cache: 'no-store' });
+        } catch (firstError) {
+          const status = typeof firstError === 'object' && firstError && 'status' in firstError
+            ? Number((firstError as { status?: number }).status)
+            : 0;
+          if (![401, 403, 404, 405, 500].includes(status)) throw firstError;
+          data = await apiRequest<{ authenticated?: boolean; user?: User }>('/auth/me', { cache: 'no-store' });
+        }
         if (!active) return;
         if (!data?.user) {
           setUnauthorized(true);
