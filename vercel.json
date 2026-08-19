@@ -10,6 +10,17 @@
       "maxDuration": 60
     }
   },
+  "rewrites": [
+    { "source": "/api/auth/:path*", "destination": "/api/index.py" },
+    { "source": "/api/analyze", "destination": "/api/index.py" },
+    { "source": "/api/module2/:path*", "destination": "/api/index.py" },
+    { "source": "/api/module3/:path*", "destination": "/api/index.py" },
+    { "source": "/api/module4/:path*", "destination": "/api/index.py" },
+    { "source": "/api/module5/:path*", "destination": "/api/index.py" },
+    { "source": "/api/health", "destination": "/api/index.py" },
+    { "source": "/api/ai/health", "destination": "/api/index.py" },
+    { "source": "/api/ai/stream", "destination": "/api/index.py" }
+  ],
   "git": {
     "deploymentEnabled": {
       "*": false,
