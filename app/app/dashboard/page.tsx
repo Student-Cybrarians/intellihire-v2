@@ -19,16 +19,38 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [unauthorized, setUnauthorized] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    api.authMe()
-      .then((data) => setUser(data.user || null))
-      .catch(() => setUnauthorized(true))
-      .finally(() => setLoading(false));
+    let active = true;
+    const loadSession = async () => {
+      try {
+        const data = await api.authMe();
+        if (!active) return;
+        if (!data?.user) {
+          setUnauthorized(true);
+          return;
+        }
+        setUser(data.user);
+      } catch (err) {
+        if (!active) return;
+        const status = typeof err === 'object' && err && 'status' in err ? Number((err as { status?: number }).status) : 0;
+        if (status === 401 || status === 403) setUnauthorized(true);
+        else setError('We could not verify your session. Please try signing in again.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    loadSession();
+    return () => { active = false; };
   }, []);
 
   if (unauthorized) {
-    return <main className="m3"><div className="empty"><h1>Session required</h1><p>Please sign in to open your IntelliHire dashboard.</p><Link className="primary" href="/auth/google">Continue with Google</Link></div></main>;
+    return <main className="m3"><div className="empty"><h1>Session required</h1><p>Your sign-in session is missing or has expired. Continue with Google to return to your dashboard.</p><a className="primary" href="/api/auth/google">Continue with Google</a></div></main>;
+  }
+
+  if (error) {
+    return <main className="m3"><div className="empty"><h1>Dashboard connection error</h1><p>{error}</p><div className="buttons"><button className="primary" onClick={() => window.location.reload()}>Retry</button><a className="secondary" href="/api/auth/google">Sign in again</a></div></div></main>;
   }
 
   return <AppShell name={user?.name}>
