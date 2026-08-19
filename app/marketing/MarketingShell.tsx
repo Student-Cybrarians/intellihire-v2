@@ -59,7 +59,7 @@ export default function MarketingShell({ children, active = '' }: { children: Re
       <Link className={styles.logo} href="/" onClick={() => setMenu(false)}><span>IH</span> INTELLIHIRE</Link>
       <button type="button" className={styles.mobileMenu} onClick={() => setMenu(!menu)} aria-label="Toggle navigation" aria-expanded={menu}>☰</button>
       <nav className={`${styles.navlinks} ${menu ? styles.open : ''}`} aria-label="Primary navigation">
-        {['about','features','courses','pricing','faq','contact'].map(item => <Link key={item} className={active === item ? styles.active : ''} onClick={() => setMenu(false)} href={`/${item}`}>{item[0].toUpperCase()+item.slice(1)}</Link>)}
+        {['about','features','first-hour','courses','pricing','faq','contact'].map(item => <Link key={item} className={active === item ? styles.active : ''} onClick={() => setMenu(false)} href={`/${item}`}>{item === 'first-hour' ? 'First Hour' : item[0].toUpperCase()+item.slice(1)}</Link>)}
         <a className={styles.login} href="/api/auth/google" onClick={() => setMenu(false)}>Sign in</a>
         <button type="button" className={styles.theme} onClick={() => setDark(!dark)} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}>{dark ? '☀' : '☾'}</button>
       </nav>
@@ -95,7 +95,7 @@ export default function MarketingShell({ children, active = '' }: { children: Re
       </form>
     </section>
 
-    <footer className={styles.footer}><div><Link className={styles.logo} href="/"><span>IH</span> INTELLIHIRE</Link><p>Train Smarter. Interview Better. Get Hired.</p></div><div className={styles.footerLinks}><Link href="/about">About</Link><Link href="/features">Features</Link><Link href="/courses">Courses</Link><Link href="/pricing">Pricing</Link><Link href="/faq">FAQ</Link><Link href="/contact">Contact</Link></div><small>© 2026 IntelliHire. Career preparation, powered by AI.</small></footer>
+    <footer className={styles.footer}><div><Link className={styles.logo} href="/"><span>IH</span> INTELLIHIRE</Link><p>Train Smarter. Interview Better. Get Hired.</p></div><div className={styles.footerLinks}><Link href="/about">About</Link><Link href="/features">Features</Link><Link href="/first-hour">First Hour</Link><Link href="/courses">Courses</Link><Link href="/pricing">Pricing</Link><Link href="/faq">FAQ</Link><Link href="/contact">Contact</Link></div><small>© 2026 IntelliHire. Career preparation, powered by AI.</small></footer>
     <button type="button" onClick={scrollToTop} className={styles.top} aria-label="Back to top">↑</button>
   </div>;
 }

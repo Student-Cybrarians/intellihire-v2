@@ -18,7 +18,8 @@ export default function Home() {
         <h1>Train smarter.<br/><em>Interview better.</em><br/>Get hired.</h1>
         <p>IntelliHire turns the hiring journey into one intelligent preparation system — ATS resume intelligence, adaptive assessments, technical interviews, HR practice and measurable career readiness.</p>
         <div className={styles.actions}>
-          <a className={styles.primary} href="/api/auth/google">Start your journey →</a>
+          <Link className={styles.primary} href="/first-hour">Start your first hour →</Link>
+          <a className={styles.secondary} href="/api/auth/google">Sign in</a>
           <Link className={styles.secondary} href="/features">Explore the platform</Link>
         </div>
         <p style={{fontSize:13}}>AI assists preparation and analysis. Employment decisions remain human-controlled.</p>
