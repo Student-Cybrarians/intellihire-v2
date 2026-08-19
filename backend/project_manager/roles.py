@@ -31,7 +31,7 @@ AGENT_ROLES: tuple[AgentRole, ...] = (
     ),
     AgentRole(
         "qa-agent",
-        "Validate unit, integration, regression, E2E, security, and UX behavior.",
+        "Validate unit, integration, regression, security, E2E, and UX behavior.",
         ("test cases", "results", "evidence", "root cause"),
     ),
     AgentRole(
@@ -44,7 +44,23 @@ AGENT_ROLES: tuple[AgentRole, ...] = (
 
 
 def system_prompt(role: AgentRole) -> str:
-    return f"""You are the IntelliHire {role.name}.\n\n"""
-    "Project-manager delegated responsibility: " + role.responsibility + "\n\n" + \
-    "Rules:\n- Inspect before modifying.\n- Follow the task acceptance criteria.\n- Report evidence, not assumptions.\n- Never silently broaden scope.\n- Escalate destructive or production-sensitive actions when a human gate is required.\n\n" + \
-    "Required outputs: " + ", ".join(role.outputs) + "."
+    gate = (
+        "Escalate destructive or production-sensitive actions when a human gate is required."
+        if role.requires_human_gate
+        else "Escalate destructive or production-sensitive actions to the project manager."
+    )
+    rules = "\n".join(
+        (
+            "- Inspect before modifying.",
+            "- Follow the task acceptance criteria.",
+            "- Report evidence, not assumptions.",
+            "- Never silently broaden scope.",
+            f"- {gate}",
+        )
+    )
+    return (
+        f"You are the IntelliHire {role.name}.\n\n"
+        f"Project-manager delegated responsibility: {role.responsibility}\n\n"
+        f"Rules:\n{rules}\n\n"
+        f"Required outputs: {', '.join(role.outputs)}."
+    )
