@@ -42,9 +42,6 @@ def _google_configured():
 
 
 def _oauth_signing_key():
-    # Use a deployment-specific secret already required for OAuth. This makes
-    # the state self-contained so callback validation does not depend on a
-    # browser cookie surviving a cross-site OAuth redirect.
     return os.getenv('GOOGLE_CLIENT_SECRET', '').encode('utf-8')
 
 
@@ -79,61 +76,19 @@ def _read_oauth_state(state):
 
 @auth.get('/google')
 def google_login():
-    if not _google_configured():
-        return redirect('/?auth_error=google_not_configured')
-    nonce = secrets.token_urlsafe(32)
-    state = _build_oauth_state(nonce)
-    params = {'client_id': os.getenv('GOOGLE_CLIENT_ID'), 'redirect_uri': os.getenv('GOOGLE_REDIRECT_URI'), 'response_type': 'code', 'scope': 'openid email profile', 'access_type': 'online', 'state': state, 'nonce': nonce, 'prompt': 'select_account'}
-    response = make_response(redirect(GOOGLE_AUTHORIZE + '?' + urllib.parse.urlencode(params)))
-    # Keep the cookies for backward compatibility/defense in depth, but the
-    # signed state is the authoritative correlation mechanism.
-    response.set_cookie(OAUTH_STATE_COOKIE, state, max_age=600, httponly=True, secure=True, samesite='Lax', path='/')
-    response.set_cookie(OAUTH_NONCE_COOKIE, nonce, max_age=600, httponly=True, secure=True, samesite='Lax', path='/')
-    return response
+    # Keep the legacy /auth route wired to the same production OAuth bridge as
+    # /api/auth. This is important when GOOGLE_REDIRECT_URI points at /auth.
+    from backend.auth.oauth_bridge import google_login as production_google_login
+    return production_google_login()
 
 
 @auth.get('/google/callback')
 def google_callback():
-    state = request.args.get('state', '')
-    state_payload = _read_oauth_state(state)
-    if not state_payload:
-        return redirect('/?auth_error=invalid_oauth_state')
-    code = request.args.get('code')
-    if not code:
-        return redirect('/?auth_error=oauth_cancelled')
-    if not _google_configured():
-        return redirect('/?auth_error=oauth_unavailable')
-    try:
-        token_response = requests.post(GOOGLE_TOKEN, data={'code': code, 'client_id': os.getenv('GOOGLE_CLIENT_ID'), 'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'), 'redirect_uri': os.getenv('GOOGLE_REDIRECT_URI'), 'grant_type': 'authorization_code'}, timeout=15)
-        token_response.raise_for_status()
-        token_data = token_response.json()
-        raw_id_token = token_data.get('id_token')
-        if not raw_id_token:
-            return redirect('/?auth_error=missing_id_token')
-        claims = id_token.verify_oauth2_token(raw_id_token, google_requests.Request(), os.getenv('GOOGLE_CLIENT_ID'))
-        if claims.get('iss') not in ('accounts.google.com', 'https://accounts.google.com'):
-            return redirect('/?auth_error=invalid_issuer')
-        if claims.get('nonce') != state_payload.get('nonce'):
-            return redirect('/?auth_error=invalid_nonce')
-        if claims.get('email_verified') is not True:
-            return redirect('/?auth_error=email_not_verified')
-        if not claims.get('sub') or not claims.get('email'):
-            return redirect('/?auth_error=invalid_google_identity')
-        user = get_or_create_google_user(claims['sub'], claims['email'], claims.get('name', ''), claims.get('picture', ''))
-        if user.get('status') != 'ACTIVE':
-            return redirect('/?auth_error=account_not_active')
-        raw_session, expires = create_session(user['id'], request.remote_addr, request.headers.get('User-Agent', ''))
-        audit('USER_LOGIN', user['id'], user['id'], request.remote_addr, request.headers.get('User-Agent', ''), {'provider': 'google'})
-        target = '/admin' if user['role'] == 'ADMIN' else '/app/dashboard'
-        response = make_response(redirect(target))
-        response.set_cookie(SESSION_COOKIE, raw_session, expires=expires, httponly=True, secure=True, samesite='Lax', path='/')
-        response.set_cookie(OAUTH_STATE_COOKIE, '', expires=0, httponly=True, secure=True, samesite='Lax', path='/')
-        response.set_cookie(OAUTH_NONCE_COOKIE, '', expires=0, httponly=True, secure=True, samesite='Lax', path='/')
-        return response
-    except requests.HTTPError:
-        return redirect('/?auth_error=google_token_exchange_failed')
-    except Exception:
-        return redirect('/?auth_error=authentication_failed')
+    # The callback must use the same server-side state store as the login route;
+    # otherwise a valid /api/auth login can fail with invalid_oauth_state when
+    # Google redirects to the legacy /auth callback URL.
+    from backend.auth.oauth_bridge import google_callback as production_google_callback
+    return production_google_callback()
 
 
 @auth.get('/logout')
