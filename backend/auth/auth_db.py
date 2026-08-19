@@ -9,7 +9,7 @@ try:
     import psycopg
 except ImportError:
     psycopg=None
-SCHEMA="""CREATE TABLE IF NOT EXISTS users(id UUID PRIMARY KEY,name TEXT,email TEXT NOT NULL UNIQUE,picture TEXT,provider TEXT NOT NULL,provider_id TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'USER' CHECK(role IN ('USER','ADMIN')),status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','SUSPENDED','DISABLED')),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),last_login_at TIMESTAMPTZ,UNIQUE(provider,provider_id));CREATE TABLE IF NOT EXISTS sessions(id UUID PRIMARY KEY,user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,session_token_hash TEXT NOT NULL UNIQUE,expires_at TIMESTAMPTZ NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),ip_address TEXT,user_agent TEXT,revoked_at TIMESTAMPTZ);CREATE TABLE IF NOT EXISTS audit_logs(id BIGSERIAL PRIMARY KEY,event TEXT NOT NULL,actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,target_user_id UUID REFERENCES users(id) ON DELETE SET NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),ip_address TEXT,user_agent TEXT,metadata JSONB NOT NULL DEFAULT '{}'::jsonb);CREATE TABLE IF NOT EXISTS module_performance(id BIGSERIAL PRIMARY KEY,user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,module TEXT NOT NULL CHECK(module IN ('module1','module2','module3','module4','module5')),score DOUBLE PRECISION NOT NULL CHECK(score>=0 AND score<=100),payload JSONB NOT NULL DEFAULT '{}'::jsonb,completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(user_id,module));CREATE INDEX IF NOT EXISTS idx_module_performance_user ON module_performance(user_id);CREATE INDEX IF NOT EXISTS idx_module_performance_module ON module_performance(module);"""
+SCHEMA="""CREATE TABLE IF NOT EXISTS users(id UUID PRIMARY KEY,name TEXT,email TEXT NOT NULL UNIQUE,picture TEXT,provider TEXT NOT NULL,provider_id TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'USER' CHECK(role IN ('USER','ADMIN')),status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','SUSPENDED','DISABLED')),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),last_login_at TIMESTAMPTZ,UNIQUE(provider,provider_id));CREATE TABLE IF NOT EXISTS sessions(id UUID PRIMARY KEY,user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,session_token_hash TEXT NOT NULL UNIQUE,expires_at TIMESTAMPTZ NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),ip_address TEXT,user_agent TEXT,revoked_at TIMESTAMPTZ);CREATE TABLE IF NOT EXISTS oauth_states(id UUID PRIMARY KEY,state_hash TEXT NOT NULL UNIQUE,nonce TEXT NOT NULL,expires_at TIMESTAMPTZ NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());CREATE INDEX IF NOT EXISTS idx_oauth_states_expires ON oauth_states(expires_at);CREATE TABLE IF NOT EXISTS audit_logs(id BIGSERIAL PRIMARY KEY,event TEXT NOT NULL,actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,target_user_id UUID REFERENCES users(id) ON DELETE SET NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),ip_address TEXT,user_agent TEXT,metadata JSONB NOT NULL DEFAULT '{}'::jsonb);CREATE TABLE IF NOT EXISTS module_performance(id BIGSERIAL PRIMARY KEY,user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,module TEXT NOT NULL CHECK(module IN ('module1','module2','module3','module4','module5')),score DOUBLE PRECISION NOT NULL CHECK(score>=0 AND score<=100),payload JSONB NOT NULL DEFAULT '{}'::jsonb,completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(user_id,module));CREATE INDEX IF NOT EXISTS idx_module_performance_user ON module_performance(user_id);CREATE INDEX IF NOT EXISTS idx_module_performance_module ON module_performance(module);"""
 def db_connect():
     if psycopg is None: raise RuntimeError('PostgreSQL driver is not installed')
     url=os.getenv('DATABASE_URL')
@@ -19,6 +19,23 @@ def init_db():
     with db_connect() as conn:
         with conn.cursor() as cur: cur.execute(SCHEMA)
 def token_hash(token): return hashlib.sha256(token.encode()).hexdigest()
+def create_oauth_state(nonce, minutes=10):
+    init_db()
+    raw=secrets.token_urlsafe(48); expires=datetime.now(timezone.utc)+timedelta(minutes=minutes)
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute('DELETE FROM oauth_states WHERE expires_at<=NOW()')
+            cur.execute('INSERT INTO oauth_states(id,state_hash,nonce,expires_at) VALUES(%s,%s,%s,%s)',(uuid.uuid4(),token_hash(raw),nonce,expires))
+    return raw, expires
+def consume_oauth_state(raw):
+    if not raw:return None
+    init_db()
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute('DELETE FROM oauth_states WHERE expires_at<=NOW()')
+            cur.execute('DELETE FROM oauth_states WHERE state_hash=%s AND expires_at>NOW() RETURNING nonce,expires_at',(token_hash(raw),))
+            row=cur.fetchone()
+            return {'nonce':row[0],'expires_at':row[1]} if row else None
 def _is_admin_email(email):
     configured=os.getenv('ADMIN_EMAIL','').strip().lower()
     return bool(configured and email and hmac.compare_digest(configured,email.strip().lower()))
