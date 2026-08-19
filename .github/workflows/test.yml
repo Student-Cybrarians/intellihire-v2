@@ -29,6 +29,11 @@ jobs:
               git push origin HEAD:master-branch
             fi
           fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Python syntax gate
+        run: python -m compileall -q backend api
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
