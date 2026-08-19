@@ -11,6 +11,7 @@ from flask import Flask, jsonify, request
 from backend.auth.auth_routes import auth, require_auth
 from backend.auth.auth_db import init_db, record_performance
 from backend.auth.public_routes import public
+from backend.auth.oauth_bridge import google_login as production_google_login, google_callback as production_google_callback
 from backend.api.ai_routes import ai_api
 from backend.modules.module2.module2_routes import module2
 from backend.modules.module3.module3_routes import module3
@@ -30,6 +31,12 @@ app.config.update(
 for blueprint in (public, auth, module2, module3, module4, module5, ai_api):
     if blueprint.name not in app.blueprints:
         app.register_blueprint(blueprint)
+
+# Keep the legacy /auth OAuth URLs on the same production PostgreSQL-backed
+# implementation as /api/auth. This is important when GOOGLE_REDIRECT_URI is
+# configured with the legacy callback URL.
+app.view_functions["auth.google_login"] = production_google_login
+app.view_functions["auth.google_callback"] = production_google_callback
 
 
 def _init_db() -> None:
