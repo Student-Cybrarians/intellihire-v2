@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import AppShell from '../AppShell';
-import { api, apiRequest } from '../../../operational/frontend/apiClient';
+import { apiRequest } from '../../../operational/frontend/apiClient';
 
 const modules = [
   { id: '01', href: '/app/module1', title: 'ATS & Resume Intelligence', text: 'Match your resume to a target role, identify gaps and prepare ATS-ready evidence.' },
@@ -25,8 +25,6 @@ export default function DashboardPage() {
     let active = true;
     const loadSession = async () => {
       try {
-        // Prefer the canonical API boundary; retry the legacy Flask alias if
-        // a deployment edge is still serving the older route configuration.
         let data;
         try {
           data = await apiRequest<{ authenticated?: boolean; user?: User }>('/api/auth/me', { cache: 'no-store' });
