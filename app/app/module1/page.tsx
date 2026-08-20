@@ -32,18 +32,27 @@ export default function Module1Page() {
     }
     setLoading(true);
     try {
-      const response = await fetch('/api/analyze', {
+      const response = await fetch('/auth/module1/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          resume: { text: resume },
-          job: { text: job },
+          resume_text: resume,
+          jd_text: job,
         }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || 'Analysis could not be completed.');
-      setResult(data);
+      setResult({
+        atsScore: data?.ats_score,
+        overallMatch: data?.overall_match,
+        skillsMatch: data?.skills_match,
+        keywordMatch: data?.keyword_match,
+        semanticSimilarity: data?.semantic_similarity,
+        missingSkills: data?.missing_skills,
+        shortlist: data?.shortlist,
+        isSimulated: data?.is_simulated,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis could not be completed.');
     } finally {
