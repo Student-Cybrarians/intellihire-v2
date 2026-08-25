@@ -6,6 +6,7 @@ application implementation lives under backend/.
 from backend.core.app import app
 from backend.core.production_hardening import install
 from backend.auth.oauth_bridge import google_login, google_callback
+from backend.auth.auth_routes import me
 from backend.api.auth_api_alias import auth_api
 from backend.api.admin_api import admin_api
 
@@ -21,6 +22,12 @@ if "auth_api" not in app.blueprints:
     app.register_blueprint(auth_api)
 if "admin_api" not in app.blueprints:
     app.register_blueprint(admin_api)
+
+# Explicitly bind the dashboard's session probe at the Vercel entrypoint.
+# This removes ambiguity between Flask blueprint registration and Vercel's
+# /api/index.py rewrite while preserving the existing auth implementation.
+if "api_auth_me_entrypoint" not in app.view_functions:
+    app.add_url_rule("/api/auth/me", "api_auth_me_entrypoint", me, methods=["GET"])
 
 install(app)
 handler = app
