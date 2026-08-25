@@ -22,7 +22,7 @@ _____ test_vercel_configuration_preserves_nextjs_frontend_and_api_boundary _____
         assert config["functions"]["api/index.py"]["maxDuration"] == 60
         assert config["git"]["deploymentEnabled"]["master-branch"] is True
 >       assert "rewrites" not in config
-E       AssertionError: assert 'rewrites' not in {'$schema': 'https://openapi.vercel.sh/vercel.json', 'name': 'intellihire-v2', 'framework': 'nextjs', 'installCommand': 'npm install', ...}
+E       AssertionError: assert 'rewrites' not in {'$schema': 'https://openapi.vercel.sh/vercel.json', 'name': 'intellihire-v3', 'framework': 'nextjs', 'installCommand': 'npm install', ...}
 
 tests/test_deployment_smoke.py:48: AssertionError
 ____________ test_demo_endpoint_is_read_only_and_structurally_valid ____________
@@ -47,7 +47,7 @@ E        +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_co
 tests/test_deployment_smoke.py:65: AssertionError
 ______________________ test_openai_real_provider_contract ______________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d32de7990>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6a509eb210>
 
     def test_openai_real_provider_contract(monkeypatch):
         monkeypatch.setenv('OPENAI_API_KEY','test-openai-key')
@@ -69,7 +69,7 @@ E       NameError: name 'module1_ai' is not defined
 tests/test_module1_ai.py:85: NameError
 __________________ test_nvidia_fallback_after_openai_failure ___________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d33ca44d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6a51899950>
 
     def test_nvidia_fallback_after_openai_failure(monkeypatch):
         monkeypatch.setenv('OPENAI_API_KEY','bad-openai-key')
@@ -93,7 +93,7 @@ E       NameError: name 'module1_ai' is not defined
 tests/test_module1_ai.py:110: NameError
 ________________ test_provider_timeout_returns_without_hanging _________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d33ca4610>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6a509f92d0>
 
     def test_provider_timeout_returns_without_hanging(monkeypatch):
         monkeypatch.setenv('OPENAI_API_KEY','slow-openai-key')
@@ -134,7 +134,7 @@ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
     ???
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-name = 'module4_store', import_ = <function _gcd_import at 0x7f9d38d4fd80>
+name = 'module4_store', import_ = <function _gcd_import at 0x7f6a56af7d80>
 
 >   ???
 E   ModuleNotFoundError: No module named 'module4_store'
@@ -165,7 +165,7 @@ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
     ???
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-name = 'module4_store', import_ = <function _gcd_import at 0x7f9d38d4fd80>
+name = 'module4_store', import_ = <function _gcd_import at 0x7f6a56af7d80>
 
 >   ???
 E   ModuleNotFoundError: No module named 'module4_store'
@@ -195,7 +195,7 @@ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
     ???
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-name = 'module4_store', import_ = <function _gcd_import at 0x7f9d38d4fd80>
+name = 'module4_store', import_ = <function _gcd_import at 0x7f6a56af7d80>
 
 >   ???
 E   ModuleNotFoundError: No module named 'module4_store'
@@ -212,7 +212,7 @@ E       assert 'No autonomous hiring outcome is produced while readiness evidenc
 tests/test_module5_ui_contract.py:23: AssertionError
 __________________ test_retrieve_requires_configured_provider __________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d139a3c90>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6a3136be10>
 
     def test_retrieve_requires_configured_provider(monkeypatch):
         monkeypatch.delenv('TAVILY_API_KEY', raising=False)
@@ -223,7 +223,7 @@ E       NameError: name 'research_retrieval' is not defined
 tests/test_research_retrieval.py:8: NameError
 _______________________ test_retrieve_normalizes_results _______________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d146e5c10>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6a50820b10>
 
     def test_retrieve_normalizes_results(monkeypatch):
         monkeypatch.setenv('TAVILY_API_KEY','test-key')
@@ -237,7 +237,7 @@ E       NameError: name 'research_retrieval' is not defined
 tests/test_research_retrieval.py:16: NameError
 __________________ test_synthesis_rejects_untrusted_citations __________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d13e51d90>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6a3190fd90>
 
     def test_synthesis_rejects_untrusted_citations(monkeypatch):
         monkeypatch.setenv('OPENAI_API_KEY','test-key')
@@ -248,7 +248,7 @@ E       NameError: name 'research_retrieval' is not defined
 tests/test_research_retrieval.py:25: NameError
 _____________________ test_synthesis_falls_back_without_ai _____________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d138f3710>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6a3139a5d0>
 
     def test_synthesis_falls_back_without_ai(monkeypatch):
         monkeypatch.delenv('OPENAI_API_KEY',raising=False)
@@ -260,7 +260,7 @@ E       NameError: name 'research_retrieval' is not defined
 tests/test_research_retrieval.py:34: NameError
 ___________ test_run_research_uses_supplied_sources_without_network ____________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d138f3410>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6a31369ad0>
 
     def test_run_research_uses_supplied_sources_without_network(monkeypatch):
 >       monkeypatch.setattr(research_retrieval,'retrieve',lambda *a,**k: (_ for _ in ()).throw(AssertionError('network should not be called')))
@@ -278,7 +278,7 @@ E       NameError: name 'skill_graph_store' is not defined
 tests/test_skill_graph_store.py:52: NameError
 _______________________ test_save_uses_upsert_and_jsonb ________________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d13e465d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6a31f77d50>
 
     def test_save_uses_upsert_and_jsonb(monkeypatch):
         cursor = FakeCursor()
@@ -290,7 +290,7 @@ E       NameError: name 'skill_graph_store' is not defined
 tests/test_skill_graph_store.py:63: NameError
 _______________ test_latest_is_user_scoped_and_round_trips_json ________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9d13e56c50>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6a31781c50>
 
     def test_latest_is_user_scoped_and_round_trips_json(monkeypatch):
         graph = {"version": 1, "role": "Backend Engineer", "nodes": [], "edges": []}
@@ -305,7 +305,7 @@ tests/test_skill_graph_store.py:76: NameError
 FAILED tests/test_deployment_smoke.py::test_public_routes_are_reachable_through_flask_entrypoint - AssertionError: /
 assert 404 in {200, 302}
  +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
-FAILED tests/test_deployment_smoke.py::test_vercel_configuration_preserves_nextjs_frontend_and_api_boundary - AssertionError: assert 'rewrites' not in {'$schema': 'https://openapi.vercel.sh/vercel.json', 'name': 'intellihire-v2', 'framework': 'nextjs', 'installCommand': 'npm install', ...}
+FAILED tests/test_deployment_smoke.py::test_vercel_configuration_preserves_nextjs_frontend_and_api_boundary - AssertionError: assert 'rewrites' not in {'$schema': 'https://openapi.vercel.sh/vercel.json', 'name': 'intellihire-v3', 'framework': 'nextjs', 'installCommand': 'npm install', ...}
 FAILED tests/test_deployment_smoke.py::test_demo_endpoint_is_read_only_and_structurally_valid - assert 404 == 200
  +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
 FAILED tests/test_deployment_smoke.py::test_protected_application_route_requires_authentication - assert 404 in {302, 401}
@@ -325,4 +325,4 @@ FAILED tests/test_research_retrieval.py::test_run_research_uses_supplied_sources
 FAILED tests/test_skill_graph_store.py::test_normalize_graph_preserves_evidence_boundary - NameError: name 'skill_graph_store' is not defined
 FAILED tests/test_skill_graph_store.py::test_save_uses_upsert_and_jsonb - NameError: name 'skill_graph_store' is not defined
 FAILED tests/test_skill_graph_store.py::test_latest_is_user_scoped_and_round_trips_json - NameError: name 'skill_graph_store' is not defined
-19 failed, 67 passed in 2.55s
+19 failed, 67 passed in 2.42s
