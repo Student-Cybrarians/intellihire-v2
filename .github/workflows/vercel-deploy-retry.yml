@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '30 17 * * *'
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -24,17 +25,25 @@ jobs:
           npm run typecheck
           npm run build
 
-      - name: Validate Vercel deployment credentials
+      # Vercel Git Integration is the canonical production deploy path.
+      # The CLI path is used only when all three optional GitHub secrets exist.
+      - name: Check optional Vercel CLI credentials
+        id: vercel-creds
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          test -n "$VERCEL_TOKEN" || { echo 'Missing GitHub secret VERCEL_TOKEN'; exit 1; }
-          test -n "$VERCEL_ORG_ID" || { echo 'Missing GitHub secret VERCEL_ORG_ID'; exit 1; }
-          test -n "$VERCEL_PROJECT_ID" || { echo 'Missing GitHub secret VERCEL_PROJECT_ID'; exit 1; }
+          if [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Vercel CLI credentials available."
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Vercel CLI credentials are not configured; relying on Vercel Git Integration for deployment."
+          fi
 
       - name: Deploy production through Vercel CLI
+        if: steps.vercel-creds.outputs.available == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -42,3 +51,11 @@ jobs:
         run: |
           npx --yes vercel link --yes --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
           npx --yes vercel deploy --prod --yes --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+
+      - name: Confirm deployment path
+        run: |
+          if [ "${{ steps.vercel-creds.outputs.available }}" = "true" ]; then
+            echo "Production deployment requested through Vercel CLI."
+          else
+            echo "Build passed. Production deployment is delegated to the connected Vercel Git Integration."
+          fi
