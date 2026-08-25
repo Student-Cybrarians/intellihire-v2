@@ -36,10 +36,7 @@ export default function Module1Page() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          resume: { text: resume },
-          job: { text: job },
-        }),
+        body: JSON.stringify({ resume: { text: resume }, job: { text: job } }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || 'Analysis could not be completed.');
@@ -78,10 +75,8 @@ export default function Module1Page() {
           </label>
           {error && <div className="notice" role="alert">{error}</div>}
           <div className="buttons">
-            <button className="primary" type="submit" disabled={loading}>
-              {loading ? 'Analyzing…' : 'Analyze Resume'}
-            </button>
-            <Link className="secondary" href="/app/dashboard">Back to dashboard</Link>
+            <button className="primary" type="submit" disabled={loading}>{loading ? 'Analyzing…' : 'Analyze Resume'}</button>
+            <Link className="secondary" href="/app">Back to workspace</Link>
           </div>
         </form>
 
@@ -95,9 +90,7 @@ export default function Module1Page() {
               <div className="card"><strong>Keywords</strong><h2>{result.keywordMatch ?? '—'}%</h2></div>
             </div>
             <p><strong>Recommendation:</strong> {result.shortlist || 'Review the analysis and improve the identified gaps.'}</p>
-            {!!result.missingSkills?.length && (
-              <div className="notice"><strong>Skills to strengthen:</strong> {result.missingSkills.join(', ')}</div>
-            )}
+            {!!result.missingSkills?.length && <div className="notice"><strong>Skills to strengthen:</strong> {result.missingSkills.join(', ')}</div>}
             {result.isSimulated && <div className="notice">This result is marked simulated by the backend. Treat it as an analysis aid, not a hiring decision.</div>}
           </section>
         )}
