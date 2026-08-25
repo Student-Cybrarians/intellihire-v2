@@ -1,5 +1,8 @@
 name: IntelliHire Vercel Deploy Retry
 on:
+  push:
+    branches:
+      - master-branch
   workflow_dispatch:
   schedule:
     - cron: '30 17 * * *'
