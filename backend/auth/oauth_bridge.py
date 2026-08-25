@@ -25,18 +25,37 @@ OAUTH_STATE_COOKIE = 'intellihire_oauth_state'
 OAUTH_NONCE_COOKIE = 'intellihire_oauth_nonce'
 GOOGLE_AUTHORIZE = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token'
+CANONICAL_HOST = 'intellihire-v2.vercel.app'
+CANONICAL_GOOGLE_REDIRECT_URI = f'https://{CANONICAL_HOST}/auth/google/callback'
+
 
 def _configured():
     return all(os.getenv(k) for k in ('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI')) and requests is not None and id_token is not None and google_requests is not None
+
+
+def _redirect_uri():
+    """Use the canonical production callback on the canonical host.
+
+    Keep the configured legacy callback available for old deployment URLs so
+    existing OAuth clients do not break during migration. Once the canonical
+    URI is registered in Google Cloud, the canonical host becomes the stable
+    production OAuth surface.
+    """
+    host = (request.host or '').split(':', 1)[0].lower()
+    if host == CANONICAL_HOST:
+        return CANONICAL_GOOGLE_REDIRECT_URI
+    return os.getenv('GOOGLE_REDIRECT_URI')
+
 
 def google_login():
     if not _configured():
         return redirect('/?auth_error=google_not_configured')
     nonce = secrets.token_urlsafe(32)
     state, _ = create_oauth_state(nonce)
+    redirect_uri = _redirect_uri()
     params = {
         'client_id': os.getenv('GOOGLE_CLIENT_ID'),
-        'redirect_uri': os.getenv('GOOGLE_REDIRECT_URI'),
+        'redirect_uri': redirect_uri,
         'response_type': 'code',
         'scope': 'openid email profile',
         'access_type': 'online',
@@ -49,6 +68,7 @@ def google_login():
     response.set_cookie(OAUTH_NONCE_COOKIE, nonce, max_age=600, httponly=True, secure=True, samesite='Lax', path='/')
     return response
 
+
 def google_callback():
     state = request.args.get('state', '')
     state_payload = consume_oauth_state(state)
@@ -60,11 +80,12 @@ def google_callback():
     if not _configured():
         return redirect('/?auth_error=oauth_unavailable')
     try:
+        redirect_uri = _redirect_uri()
         token_response = requests.post(GOOGLE_TOKEN, data={
             'code': code,
             'client_id': os.getenv('GOOGLE_CLIENT_ID'),
             'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
-            'redirect_uri': os.getenv('GOOGLE_REDIRECT_URI'),
+            'redirect_uri': redirect_uri,
             'grant_type': 'authorization_code',
         }, timeout=15)
         token_response.raise_for_status()
