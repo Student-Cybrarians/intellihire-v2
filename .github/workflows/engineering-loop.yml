@@ -1,0 +1,68 @@
+name: IntelliHire Engineering Loop
+
+on:
+  push:
+    branches: [master-branch, chore/**]
+  pull_request:
+    branches: [master-branch]
+
+permissions:
+  contents: read
+
+jobs:
+  observe-and-verify:
+    name: Observe, baseline, verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Establish change summary
+        run: |
+          echo "## Engineering loop" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Event: $GITHUB_EVENT_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Ref: $GITHUB_REF" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Gate order: syntax → targeted/regression tests → typecheck → build" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Backend syntax gate
+        run: python -m compileall -q backend api
+
+      - name: Python regression gate
+        run: python -m pytest -q
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Typecheck gate
+        run: npm run typecheck
+
+      - name: Production build gate
+        run: npm run build
+
+      - name: Completion summary
+        if: success()
+        run: |
+          echo "## PASS — engineering loop verification" >> "$GITHUB_STEP_SUMMARY"
+          echo "All configured syntax, regression, typecheck, and production-build gates passed." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Failure summary
+        if: failure()
+        run: |
+          echo "## FAIL — repair loop required" >> "$GITHUB_STEP_SUMMARY"
+          echo "A verification gate failed. Do not declare the task complete; isolate the root cause, make the smallest repair, and rerun verification." >> "$GITHUB_STEP_SUMMARY"
