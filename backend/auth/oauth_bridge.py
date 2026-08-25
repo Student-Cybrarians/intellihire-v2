@@ -21,7 +21,7 @@ OAUTH_STATE_COOKIE = 'intellihire_oauth_state'
 OAUTH_NONCE_COOKIE = 'intellihire_oauth_nonce'
 GOOGLE_AUTHORIZE = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token'
-CANONICAL_HOST = 'intellihire-v3.vercel.app'
+CANONICAL_HOST = 'intellihire-v2.vercel.app'
 CANONICAL_GOOGLE_REDIRECT_URI = f'https://{CANONICAL_HOST}/auth/google/callback'
 
 
@@ -97,7 +97,7 @@ def google_callback():
             return redirect('/?auth_error=account_not_active')
         raw_session, expires = create_session(user['id'], request.remote_addr, request.headers.get('User-Agent', ''))
         audit('USER_LOGIN', user['id'], user['id'], request.remote_addr, request.headers.get('User-Agent', ''), {'provider': 'google'})
-        target = '/admin' if user['role'] == 'ADMIN' else '/app/dashboard'
+        target = '/admin' if user['role'] == 'ADMIN' else '/app'
         response = make_response(redirect(target))
         response.set_cookie(SESSION_COOKIE, raw_session, expires=expires, httponly=True, secure=True, samesite='Lax', path='/')
         response.set_cookie(OAUTH_STATE_COOKIE, '', expires=0, httponly=True, secure=True, samesite='Lax', path='/')
