@@ -1,8 +1,4 @@
-"""Production OAuth handlers with server-side state correlation.
-
-OAuth state is persisted in PostgreSQL so Vercel serverless instances do not
-need to share browser-state signing keys or memory.
-"""
+"""Production Google OAuth handlers with server-side state correlation."""
 import os
 import secrets
 import urllib.parse
@@ -25,7 +21,7 @@ OAUTH_STATE_COOKIE = 'intellihire_oauth_state'
 OAUTH_NONCE_COOKIE = 'intellihire_oauth_nonce'
 GOOGLE_AUTHORIZE = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token'
-CANONICAL_HOST = 'intellihire-v2.vercel.app'
+CANONICAL_HOST = 'intellihire-v3.vercel.app'
 CANONICAL_GOOGLE_REDIRECT_URI = f'https://{CANONICAL_HOST}/auth/google/callback'
 
 
@@ -34,17 +30,11 @@ def _configured():
 
 
 def _redirect_uri():
-    """Use the canonical production callback on the canonical host.
-
-    Keep the configured legacy callback available for old deployment URLs so
-    existing OAuth clients do not break during migration. Once the canonical
-    URI is registered in Google Cloud, the canonical host becomes the stable
-    production OAuth surface.
-    """
     host = (request.host or '').split(':', 1)[0].lower()
     if host == CANONICAL_HOST:
         return CANONICAL_GOOGLE_REDIRECT_URI
-    return os.getenv('GOOGLE_REDIRECT_URI')
+    configured = os.getenv('GOOGLE_REDIRECT_URI', '').strip()
+    return configured or CANONICAL_GOOGLE_REDIRECT_URI
 
 
 def google_login():
