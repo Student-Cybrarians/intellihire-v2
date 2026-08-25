@@ -1,16 +1,328 @@
+............FFFF.........FFF..............................FFF.....F..... [ 83%]
+....FFFFF..FFF                                                           [100%]
+=================================== FAILURES ===================================
+__________ test_public_routes_are_reachable_through_flask_entrypoint ___________
 
-==================================== ERRORS ====================================
-________________ ERROR collecting tests/test_ai_orchestrator.py ________________
-ImportError while importing test module '/home/runner/work/intellihire-v2/intellihire-v2/tests/test_ai_orchestrator.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    def test_public_routes_are_reachable_through_flask_entrypoint():
+        client = _client()
+        for path in ["/", "/about", "/how-it-works", "/features", "/pricing", "/contact"]:
+            response = client.get(path, follow_redirects=False)
+>           assert response.status_code in {200, 302}, path
+E           AssertionError: /
+E           assert 404 in {200, 302}
+E            +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+
+tests/test_deployment_smoke.py:37: AssertionError
+_____ test_vercel_configuration_preserves_nextjs_frontend_and_api_boundary _____
+
+    def test_vercel_configuration_preserves_nextjs_frontend_and_api_boundary():
+        config = json.loads(Path("vercel.json").read_text(encoding="utf-8"))
+        assert config["framework"] == "nextjs"
+        assert config["buildCommand"] == "npm run build"
+        assert config["functions"]["api/index.py"]["maxDuration"] == 60
+        assert config["git"]["deploymentEnabled"]["master-branch"] is True
+>       assert "rewrites" not in config
+E       AssertionError: assert 'rewrites' not in {'$schema': 'https://openapi.vercel.sh/vercel.json', 'framework': 'nextjs', 'installCommand': 'npm install', 'buildCommand': 'npm run build', ...}
+
+tests/test_deployment_smoke.py:48: AssertionError
+____________ test_demo_endpoint_is_read_only_and_structurally_valid ____________
+
+    def test_demo_endpoint_is_read_only_and_structurally_valid():
+        client = _client()
+        response = client.get("/api/demo")
+>       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+
+tests/test_deployment_smoke.py:56: AssertionError
+___________ test_protected_application_route_requires_authentication ___________
+
+    def test_protected_application_route_requires_authentication():
+        client = _client()
+        response = client.get("/app/dashboard")
+>       assert response.status_code in {302, 401}
+E       assert 404 in {302, 401}
+E        +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+
+tests/test_deployment_smoke.py:65: AssertionError
+______________________ test_openai_real_provider_contract ______________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd4a29eb410>
+
+    def test_openai_real_provider_contract(monkeypatch):
+        monkeypatch.setenv('OPENAI_API_KEY','test-openai-key')
+        monkeypatch.delenv('NVIDIA_API_KEY', raising=False)
+        calls=[]
+    
+        class Response:
+            def raise_for_status(self): pass
+            def json(self): return {'choices':[{'message':{'content':json.dumps(_ai_payload())}}]}
+    
+        def fake_post(endpoint, **kwargs):
+            calls.append((endpoint,kwargs))
+            return Response()
+    
+>       monkeypatch.setattr(module1_ai.requests, 'post', fake_post)
+                            ^^^^^^^^^^
+E       NameError: name 'module1_ai' is not defined
+
+tests/test_module1_ai.py:85: NameError
+__________________ test_nvidia_fallback_after_openai_failure ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd4a3896010>
+
+    def test_nvidia_fallback_after_openai_failure(monkeypatch):
+        monkeypatch.setenv('OPENAI_API_KEY','bad-openai-key')
+        monkeypatch.setenv('NVIDIA_API_KEY','test-nvidia-key')
+        endpoints=[]
+    
+        class Response:
+            def __init__(self, fail=False): self.fail=fail
+            def raise_for_status(self):
+                if self.fail: raise RuntimeError('provider failure')
+            def json(self): return {'choices':[{'message':{'content':json.dumps(_ai_payload(81))}}]}
+    
+        def fake_post(endpoint, **kwargs):
+            endpoints.append(endpoint)
+            return Response(fail=endpoint.startswith('https://api.openai.com'))
+    
+>       monkeypatch.setattr(module1_ai.requests, 'post', fake_post)
+                            ^^^^^^^^^^
+E       NameError: name 'module1_ai' is not defined
+
+tests/test_module1_ai.py:110: NameError
+________________ test_provider_timeout_returns_without_hanging _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd4a29e2950>
+
+    def test_provider_timeout_returns_without_hanging(monkeypatch):
+        monkeypatch.setenv('OPENAI_API_KEY','slow-openai-key')
+        monkeypatch.delenv('NVIDIA_API_KEY', raising=False)
+        monkeypatch.setenv('MODULE1_AI_PROVIDER_TIMEOUT_SECONDS','2')
+        monkeypatch.setenv('MODULE1_AI_TOTAL_TIMEOUT_SECONDS','2')
+    
+        def fake_post(endpoint, **kwargs):
+            assert kwargs['timeout'] <= 2
+            raise module1_ai.requests.Timeout('simulated provider timeout')
+    
+>       monkeypatch.setattr(module1_ai.requests, 'post', fake_post)
+                            ^^^^^^^^^^
+E       NameError: name 'module1_ai' is not defined
+
+tests/test_module1_ai.py:127: NameError
+____________________ Module4StoreTests.test_list_is_bounded ____________________
+
+self = <test_module4_store.Module4StoreTests testMethod=test_list_is_bounded>
+
+    def test_list_is_bounded(self):
+>       with patch('module4_store.ensure_schema'), patch('module4_store.db_connect') as connect:
+
+tests/test_module4_store.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/unittest/mock.py:1430: in __enter__
+    self.target = self.getter()
+                  ^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/pkgutil.py:700: in resolve_name
+    mod = importlib.import_module(modname)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_ai_orchestrator.py:6: in <module>
-    from backend.ai.orchestrator import AIOrchestrator, AIProviderError
-E   ModuleNotFoundError: No module named 'backend.ai.orchestrator'
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'module4_store', import_ = <function _gcd_import at 0x7fd4a8b4fd80>
+
+>   ???
+E   ModuleNotFoundError: No module named 'module4_store'
+
+<frozen importlib._bootstrap>:1140: ModuleNotFoundError
+__________ Module4StoreTests.test_save_rejects_missing_owned_session ___________
+
+self = <test_module4_store.Module4StoreTests testMethod=test_save_rejects_missing_owned_session>
+
+    def test_save_rejects_missing_owned_session(self):
+        state={'id':'s1','question_index':1,'events':[],'status':'IN_PROGRESS'}
+>       with patch('module4_store.ensure_schema'), patch('module4_store.db_connect') as connect:
+
+tests/test_module4_store.py:17: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/unittest/mock.py:1430: in __enter__
+    self.target = self.getter()
+                  ^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/pkgutil.py:700: in resolve_name
+    mod = importlib.import_module(modname)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'module4_store', import_ = <function _gcd_import at 0x7fd4a8b4fd80>
+
+>   ???
+E   ModuleNotFoundError: No module named 'module4_store'
+
+<frozen importlib._bootstrap>:1140: ModuleNotFoundError
+_______________ Module4StoreTests.test_store_requires_user_scope _______________
+
+self = <test_module4_store.Module4StoreTests testMethod=test_store_requires_user_scope>
+
+    def test_store_requires_user_scope(self):
+>       with patch('module4_store.ensure_schema'), patch('module4_store.db_connect') as connect:
+
+tests/test_module4_store.py:7: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/unittest/mock.py:1430: in __enter__
+    self.target = self.getter()
+                  ^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/pkgutil.py:700: in resolve_name
+    mod = importlib.import_module(modname)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'module4_store', import_ = <function _gcd_import at 0x7fd4a8b4fd80>
+
+>   ???
+E   ModuleNotFoundError: No module named 'module4_store'
+
+<frozen importlib._bootstrap>:1140: ModuleNotFoundError
+_________ test_module5_ui_handles_service_failure_without_hiring_claim _________
+
+    def test_module5_ui_handles_service_failure_without_hiring_claim():
+        html = Path('templates/module5.html').read_text(encoding='utf-8')
+        assert 'Readiness service temporarily unavailable' in html
+>       assert 'No autonomous hiring outcome is produced while readiness evidence is unavailable.' in html
+E       assert 'No autonomous hiring outcome is produced while readiness evidence is unavailable.' in '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-...nce.</li>\';document.getElementById(\'skillGraph\').textContent=\'Skill graph unavailable.\'});</script></body></html>'
+
+tests/test_module5_ui_contract.py:23: AssertionError
+__________________ test_retrieve_requires_configured_provider __________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd48423bf90>
+
+    def test_retrieve_requires_configured_provider(monkeypatch):
+        monkeypatch.delenv('TAVILY_API_KEY', raising=False)
+>       assert research_retrieval.retrieve('learn python')[1] == 'not_configured'
+               ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'research_retrieval' is not defined
+
+tests/test_research_retrieval.py:8: NameError
+_______________________ test_retrieve_normalizes_results _______________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd48384ea50>
+
+    def test_retrieve_normalizes_results(monkeypatch):
+        monkeypatch.setenv('TAVILY_API_KEY','test-key')
+        class Response:
+            def raise_for_status(self): pass
+            def json(self): return {'results':[{'title':'Python Docs','url':'https://docs.python.org/3/','content':'Official Python documentation'}]}
+>       monkeypatch.setattr(research_retrieval.requests,'post',lambda *a,**k: Response())
+                            ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'research_retrieval' is not defined
+
+tests/test_research_retrieval.py:16: NameError
+__________________ test_synthesis_rejects_untrusted_citations __________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd4834866d0>
+
+    def test_synthesis_rejects_untrusted_citations(monkeypatch):
+        monkeypatch.setenv('OPENAI_API_KEY','test-key')
+>       monkeypatch.setattr(research_retrieval,'_chat',lambda *a,**k: json.dumps({'answer':'grounded','key_findings':[],'implications_for_candidate':[],'learning_actions':[],'citations':['https://evil.example/not-supplied']}))
+                            ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'research_retrieval' is not defined
+
+tests/test_research_retrieval.py:25: NameError
+_____________________ test_synthesis_falls_back_without_ai _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd4834863d0>
+
+    def test_synthesis_falls_back_without_ai(monkeypatch):
+        monkeypatch.delenv('OPENAI_API_KEY',raising=False)
+        monkeypatch.delenv('NVIDIA_API_KEY',raising=False)
+>       result=research_retrieval.synthesize({'question':'q','sources':[{'title':'Trusted','url':'https://trusted.example/a','snippet':'evidence'}],'claims':[{'evidence':'evidence','source_url':'https://trusted.example/a'}]})
+               ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'research_retrieval' is not defined
+
+tests/test_research_retrieval.py:34: NameError
+___________ test_run_research_uses_supplied_sources_without_network ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd483452410>
+
+    def test_run_research_uses_supplied_sources_without_network(monkeypatch):
+>       monkeypatch.setattr(research_retrieval,'retrieve',lambda *a,**k: (_ for _ in ()).throw(AssertionError('network should not be called')))
+                            ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'research_retrieval' is not defined
+
+tests/test_research_retrieval.py:41: NameError
+_______________ test_normalize_graph_preserves_evidence_boundary _______________
+
+    def test_normalize_graph_preserves_evidence_boundary():
+>       graph = skill_graph_store._normalize_graph(sample_twin())
+                ^^^^^^^^^^^^^^^^^
+E       NameError: name 'skill_graph_store' is not defined
+
+tests/test_skill_graph_store.py:52: NameError
+_______________________ test_save_uses_upsert_and_jsonb ________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd4839c7010>
+
+    def test_save_uses_upsert_and_jsonb(monkeypatch):
+        cursor = FakeCursor()
+        conn = FakeConn(cursor)
+>       monkeypatch.setattr(skill_graph_store, "db_connect", lambda: conn)
+                            ^^^^^^^^^^^^^^^^^
+E       NameError: name 'skill_graph_store' is not defined
+
+tests/test_skill_graph_store.py:63: NameError
+_______________ test_latest_is_user_scoped_and_round_trips_json ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fd485328410>
+
+    def test_latest_is_user_scoped_and_round_trips_json(monkeypatch):
+        graph = {"version": 1, "role": "Backend Engineer", "nodes": [], "edges": []}
+        cursor = FakeCursor((json.dumps(graph), "fingerprint", None))
+        conn = FakeConn(cursor)
+>       monkeypatch.setattr(skill_graph_store, "db_connect", lambda: conn)
+                            ^^^^^^^^^^^^^^^^^
+E       NameError: name 'skill_graph_store' is not defined
+
+tests/test_skill_graph_store.py:76: NameError
 =========================== short test summary info ============================
-ERROR tests/test_ai_orchestrator.py
-!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
-1 error in 0.69s
+FAILED tests/test_deployment_smoke.py::test_public_routes_are_reachable_through_flask_entrypoint - AssertionError: /
+assert 404 in {200, 302}
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_deployment_smoke.py::test_vercel_configuration_preserves_nextjs_frontend_and_api_boundary - AssertionError: assert 'rewrites' not in {'$schema': 'https://openapi.vercel.sh/vercel.json', 'framework': 'nextjs', 'installCommand': 'npm install', 'buildCommand': 'npm run build', ...}
+FAILED tests/test_deployment_smoke.py::test_demo_endpoint_is_read_only_and_structurally_valid - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_deployment_smoke.py::test_protected_application_route_requires_authentication - assert 404 in {302, 401}
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_module1_ai.py::test_openai_real_provider_contract - NameError: name 'module1_ai' is not defined
+FAILED tests/test_module1_ai.py::test_nvidia_fallback_after_openai_failure - NameError: name 'module1_ai' is not defined
+FAILED tests/test_module1_ai.py::test_provider_timeout_returns_without_hanging - NameError: name 'module1_ai' is not defined
+FAILED tests/test_module4_store.py::Module4StoreTests::test_list_is_bounded - ModuleNotFoundError: No module named 'module4_store'
+FAILED tests/test_module4_store.py::Module4StoreTests::test_save_rejects_missing_owned_session - ModuleNotFoundError: No module named 'module4_store'
+FAILED tests/test_module4_store.py::Module4StoreTests::test_store_requires_user_scope - ModuleNotFoundError: No module named 'module4_store'
+FAILED tests/test_module5_ui_contract.py::test_module5_ui_handles_service_failure_without_hiring_claim - assert 'No autonomous hiring outcome is produced while readiness evidence is unavailable.' in '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-...nce.</li>\';document.getElementById(\'skillGraph\').textContent=\'Skill graph unavailable.\'});</script></body></html>'
+FAILED tests/test_research_retrieval.py::test_retrieve_requires_configured_provider - NameError: name 'research_retrieval' is not defined
+FAILED tests/test_research_retrieval.py::test_retrieve_normalizes_results - NameError: name 'research_retrieval' is not defined
+FAILED tests/test_research_retrieval.py::test_synthesis_rejects_untrusted_citations - NameError: name 'research_retrieval' is not defined
+FAILED tests/test_research_retrieval.py::test_synthesis_falls_back_without_ai - NameError: name 'research_retrieval' is not defined
+FAILED tests/test_research_retrieval.py::test_run_research_uses_supplied_sources_without_network - NameError: name 'research_retrieval' is not defined
+FAILED tests/test_skill_graph_store.py::test_normalize_graph_preserves_evidence_boundary - NameError: name 'skill_graph_store' is not defined
+FAILED tests/test_skill_graph_store.py::test_save_uses_upsert_and_jsonb - NameError: name 'skill_graph_store' is not defined
+FAILED tests/test_skill_graph_store.py::test_latest_is_user_scoped_and_round_trips_json - NameError: name 'skill_graph_store' is not defined
+19 failed, 67 passed in 2.58s
