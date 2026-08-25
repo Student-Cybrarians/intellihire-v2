@@ -1,10 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "name": "intellihire-v2",
   "framework": "nextjs",
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "cleanUrls": true,
+  "alias": ["intellihire-v2.vercel.app"],
   "functions": {
     "api/index.py": {
       "maxDuration": 60
